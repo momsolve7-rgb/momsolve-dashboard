@@ -11,3 +11,9 @@
 
 ## 채널
 카페24 · 네이버 · 쿠팡 · 카카오선물하기 · 마미톡 · 이지웰 · 이지웰바우처 · 베이비빌리
+
+## 업데이트 (1줄)
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\yoriz\my-assistant\projects\dashboard-deploy\update.ps1
+```
+working/ V5 소스 → index.html 복사 → commit → push → ~30초 후 라이브.
