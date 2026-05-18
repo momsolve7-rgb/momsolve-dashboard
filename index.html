@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>맘솔브 통합 대시보드 V5</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff;
+    --bg-sidebar: #fbfbfa;
+    --bg-main: #ffffff;
+    --bg-soft: #f7f7f5;
+    --text: #37352f;
+    --text-soft: #787774;
+    --text-faint: #9b9a97;
+    --line: #ebebea;
+    --line-soft: #f1f1ef;
+    --blue: #2383e2;
+    --blue-soft: #e7f3f8;
+    --hover: rgba(55,53,47,0.06);
+    --selected: rgba(35,131,226,0.12);
+    --apple-blue: #007aff;
+    --apple-green: #34c759;
+    --apple-orange: #ff9500;
+    --apple-red: #ff3b30;
+    --apple-purple: #af52de;
+    --apple-pink: #ff2d92;
+    --apple-teal: #5ac8fa;
+    --apple-indigo: #5856d6;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Apple SD Gothic Neo', '맑은 고딕', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+  }
+  .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+
+  /* ========== 노션 스타일 좌측 사이드바 ========== */
+  .sidebar {
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--line);
+    padding: 12px 8px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .workspace {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; margin-bottom: 14px;
+    border-radius: 4px; cursor: pointer;
+  }
+  .workspace:hover { background: var(--hover); }
+  .ws-icon {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: linear-gradient(135deg, #ff9a56, #ff6b9d);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 12px; font-weight: 700;
+  }
+  .ws-name { font-size: 13.5px; font-weight: 600; flex: 1; }
+  .ws-caret { color: var(--text-faint); font-size: 10px; }
+
+  .nav-section { margin-bottom: 16px; }
+  .nav-section-title {
+    font-size: 11.5px; color: var(--text-faint); font-weight: 500;
+    padding: 4px 10px; margin-bottom: 2px;
+    text-transform: none;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; margin: 1px 0;
+    border-radius: 4px; cursor: pointer;
+    font-size: 14px; color: var(--text);
+    line-height: 1.3; user-select: none;
+  }
+  .nav-item:hover { background: var(--hover); }
+  .nav-item.active { background: var(--selected); font-weight: 600; }
+  .nav-item .caret {
+    color: var(--text-faint); width: 14px; text-align: center;
+    font-size: 10px; opacity: 0; transition: opacity 0.1s;
+  }
+  .nav-item:hover .caret { opacity: 1; }
+  .nav-item .icon {
+    width: 18px; text-align: center; font-size: 15px;
+    color: var(--text-soft); flex-shrink: 0;
+  }
+  .nav-item .label { flex: 1; }
+  .nav-item .plus {
+    color: var(--text-faint); font-size: 14px;
+    width: 18px; text-align: center; opacity: 0;
+  }
+  .nav-item:hover .plus { opacity: 1; }
+  .nav-children { margin-left: 18px; }
+
+  /* ========== 메인 ========== */
+  .main { background: var(--bg-main); }
+
+  /* 상단 필터 바 (체크박스 영역) */
+  .filter-bar {
+    padding: 18px 36px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-main);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .filter-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .breadcrumb { font-size: 12.5px; color: var(--text-soft); }
+  .breadcrumb .sep { margin: 0 6px; color: var(--text-faint); }
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+  .page-emoji { font-size: 28px; margin-right: 6px; }
+
+  .filter-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .filter-group {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .filter-label {
+    font-size: 11.5px; color: var(--text-faint); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin-right: 4px;
+  }
+
+  /* 애플 스타일 체크박스 칩 */
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: 999px;
+    background: #f2f2f7; cursor: pointer; user-select: none;
+    font-size: 12.5px; font-weight: 500;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    color: var(--text);
+  }
+  .chip input { display: none; }
+  .chip .swatch { width: 8px; height: 8px; border-radius: 50%; }
+  .chip.on {
+    background: #ffffff; border-color: var(--line); box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .chip.off { opacity: 0.4; }
+  .chip.off .swatch { background: #c7c7cc !important; }
+
+  .filter-select {
+    padding: 7px 30px 7px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: #fff;
+    font-size: 13px; color: var(--text);
+    font-family: inherit; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23787774' d='M6 8L0 0h12z'/></svg>");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+
+  /* 컨텐츠 영역 */
+  .content { padding: 24px 36px 60px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .kpi {
+    background: var(--bg-soft); border-radius: 12px; padding: 18px 20px;
+  }
+  .kpi .l { font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
+  .kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi .d { font-size: 12px; margin-top: 5px; font-weight: 500; }
+  .d.up { color: var(--apple-green); }
+  .d.down { color: var(--apple-red); }
+
+  .card {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 22px;
+  }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .card-head h3 { font-size: 15px; font-weight: 600; }
+  .card-head .sub { color: var(--text-soft); font-size: 12px; margin-top: 2px; }
+
+  .toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .chart-wrap { height: 280px; position: relative; }
+
+  table.matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.matrix th, table.matrix td {
+    padding: 9px 10px; border-bottom: 1px solid var(--line-soft); text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  table.matrix th { color: var(--text-soft); font-weight: 500; font-size: 11.5px; }
+  table.matrix td:first-child, table.matrix th:first-child { text-align: left; font-weight: 600; }
+  .heat-1 { background: rgba(52,199,89,0.06); }
+  .heat-2 { background: rgba(52,199,89,0.14); }
+  .heat-3 { background: rgba(52,199,89,0.24); }
+  .heat-4 { background: rgba(52,199,89,0.36); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ========== 좌측: 노션 스타일 네비 (체크박스 X) ========== -->
+  <aside class="sidebar">
+    <div class="workspace">
+      <div class="ws-icon">맘</div>
+      <div class="ws-name">맘솔브 워크스페이스</div>
+      <span class="ws-caret">▼</span>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-item active">
+        <span class="caret">▾</span>
+        <span class="icon">📊</span>
+        <span class="label">대시보드</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-children">
+        <div class="nav-item">
+          <span class="caret">▸</span>
+          <span class="icon">📈</span>
+          <span class="label">통합 매출 현황</span>
+        </div>
+        <div class="nav-item">
+          <span class="caret">▸</span>
+          <span class="icon">🎯</span>
+          <span class="label">마케팅 성과</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">업무 공간</div>
+
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">💰</span>
+        <span class="label">매출 분석</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">📦</span>
+        <span class="label">주문 관리</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">🛍️</span>
+        <span class="label">상품 관리</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">📢</span>
+        <span class="label">마케팅</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">💳</span>
+        <span class="label">정산·회계</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">📦</span>
+        <span class="label">재고·물류</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">👥</span>
+        <span class="label">회원·CRM</span>
+        <span class="plus">+</span>
+      </div>
+      <div class="nav-item">
+        <span class="caret">▸</span>
+        <span class="icon">📑</span>
+        <span class="label">리포트·문서</span>
+        <span class="plus">+</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">시스템</div>
+      <div class="nav-item">
+        <span class="icon">🔌</span>
+        <span class="label">채널 연동</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">⚙️</span>
+        <span class="label">설정</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">🗑️</span>
+        <span class="label">휴지통</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== 메인 ========== -->
+  <main class="main">
+
+    <!-- 상단: 3단 구조 = ① 필터링 → ② 체크박스 → (그 밑 결과) -->
+    <div class="filter-bar">
+      <!-- 미니 breadcrumb (작게) -->
+      <div class="filter-top" style="margin-bottom: 12px;">
+        <div class="breadcrumb">
+          📈 <strong style="color: var(--text);">통합 매출 현황</strong>
+          <span class="sep">·</span> 2026-05-18 · 매일 05:00 자동 갱신
+        </div>
+      </div>
+
+      <!-- ① 필터링 -->
+      <div class="filter-row" style="margin-bottom: 10px;">
+        <span class="filter-label">① 필터</span>
+        <div class="filter-group">
+          <select class="filter-select">
+            <option>최근 14일</option>
+            <option>최근 7일</option>
+            <option>이번 달</option>
+            <option>지난 달</option>
+            <option>사용자 지정 (날짜 선택)</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <select class="filter-select">
+            <option>전체 카테고리</option>
+            <option>맘솔브 베이직</option>
+            <option>영양제</option>
+            <option>유아용품</option>
+            <option>임산부용품</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <select class="filter-select">
+            <option>전체 상품</option>
+            <option>상위 8개</option>
+            <option>신상품만</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ② 체크박스 (채널) -->
+      <div class="filter-row">
+        <span class="filter-label">② 채널</span>
+        <div class="toggles" id="globalChannelToggles"></div>
+      </div>
+    </div>
+
+    <!-- 컨텐츠 -->
+    <div class="content">
+
+      <!-- KPI -->
+      <div class="kpis">
+        <div class="kpi">
+          <div class="l">오늘 총매출</div>
+          <div class="v">₩ 4,820,000</div>
+          <div class="d up">▲ 어제比 +12.4%</div>
+        </div>
+        <div class="kpi">
+          <div class="l">이번 달 누적</div>
+          <div class="v">₩ 72,140,000</div>
+          <div class="d up">▲ 전월 동기 +8.1%</div>
+        </div>
+        <div class="kpi">
+          <div class="l">오늘 주문 건수</div>
+          <div class="v">187</div>
+          <div class="d up">▲ +9</div>
+        </div>
+        <div class="kpi">
+          <div class="l">평균 주문 단가</div>
+          <div class="v">₩ 25,775</div>
+          <div class="d down">▼ -1.2%</div>
+        </div>
+      </div>
+
+      <!-- 일별 매출 추이 (선 그래프) -->
+      <section class="card" style="margin-bottom: 14px;">
+        <div class="card-head">
+          <div>
+            <h3>일별 매출 추이</h3>
+            <div class="sub">최근 14일 · 채널별 선 그래프</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      </section>
+
+      <!-- 채널별 매출액 + 마케팅 유입채널 (각각 체크박스) -->
+      <div class="grid-2">
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <h3>채널별 매출액</h3>
+              <div class="sub">선택한 채널만 표시</div>
+            </div>
+          </div>
+          <div class="toggles" id="salesToggles" style="margin-bottom: 14px;"></div>
+          <div class="chart-wrap" style="height: 240px;"><canvas id="salesChart"></canvas></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <h3>마케팅 유입채널</h3>
+              <div class="sub">광고·검색·SNS 유입 경로</div>
+            </div>
+          </div>
+          <div class="toggles" id="trafficToggles" style="margin-bottom: 14px;"></div>
+          <div class="chart-wrap" style="height: 240px;"><canvas id="trafficChart"></canvas></div>
+        </section>
+
+      </div>
+
+      <!-- 제품별 일별 매트릭스 -->
+      <section class="card" style="margin-top: 14px;">
+        <div class="card-head">
+          <div>
+            <h3>제품별 일별 매출 매트릭스</h3>
+            <div class="sub">상위 8개 상품 · 최근 7일</div>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="matrix">
+            <thead>
+              <tr>
+                <th>날짜</th>
+                <th>맘솔브 베이직세트</th>
+                <th>임산부 영양제</th>
+                <th>수유쿠션 디럭스</th>
+                <th>아기띠 슬링</th>
+                <th>유아 모빌</th>
+                <th>임산부 마사지기</th>
+                <th>아기 욕조</th>
+                <th>임산부 베개</th>
+                <th>합계</th>
+              </tr>
+            </thead>
+            <tbody id="matrixBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+const channels = [
+  { name: '카페24',          color: '#007aff', amount: 1980000 },
+  { name: '네이버',          color: '#34c759', amount:  920000 },
+  { name: '쿠팡',            color: '#ff9500', amount:  680000 },
+  { name: '카카오선물하기',  color: '#ff3b30', amount:  420000 },
+  { name: '마미톡',          color: '#af52de', amount:  390000 },
+  { name: '이지웰',          color: '#ff2d92', amount:  240000 },
+  { name: '이지웰바우처',    color: '#5ac8fa', amount:  130000 },
+  { name: '베이비빌리',      color: '#5856d6', amount:   60000 },
+];
+
+const traffic = [
+  { name: '네이버 검색광고', color: '#34c759', value: 1240000 },
+  { name: '구글 검색광고',   color: '#007aff', value:  860000 },
+  { name: '메타 광고',       color: '#5856d6', value: 1420000 },
+  { name: '카카오 모먼트',   color: '#ffcc00', value:  520000 },
+  { name: '인스타 자연',     color: '#ff2d92', value:  340000 },
+  { name: '직접 유입',       color: '#8e8e93', value:  280000 },
+  { name: '제휴 채널',       color: '#af52de', value:  180000 },
+];
+
+const seedRand = (s) => { let x = s; return () => { x = (x*9301+49297)%233280; return x/233280; }; };
+
+const days = [];
+for (let i = 13; i >= 0; i--) {
+  const d = new Date(2026, 4, 18 - i);
+  days.push(`${d.getMonth()+1}/${d.getDate()}`);
+}
+const rng = seedRand(42);
+const trendData = channels.map(c => ({
+  ...c,
+  data: days.map(() => Math.round(c.amount * (0.7 + rng()*0.6)))
+}));
+
+const trendChart = new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: trendData.map(c => ({
+      label: c.name,
+      data: c.data,
+      borderColor: c.color,
+      backgroundColor: c.color + '20',
+      borderWidth: 2,
+      tension: 0.35,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointBackgroundColor: c.color,
+      fill: false,
+    }))
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
+        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ₩${ctx.parsed.y.toLocaleString()}` }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#787774', font: { size: 11 } } },
+      y: {
+        grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+        ticks: { color: '#787774', font: { size: 11 }, callback: (v) => '₩' + (v/1000) + 'k' }
+      }
+    }
+  }
+});
+
+const salesChart = new Chart(document.getElementById('salesChart'), {
+  type: 'doughnut',
+  data: {
+    labels: channels.map(c => c.name),
+    datasets: [{
+      data: channels.map(c => c.amount),
+      backgroundColor: channels.map(c => c.color),
+      borderColor: '#fff', borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '62%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
+        callbacks: { label: (ctx) => `  ${ctx.label}: ₩${ctx.parsed.toLocaleString()}` }
+      }
+    }
+  }
+});
+
+const trafficChart = new Chart(document.getElementById('trafficChart'), {
+  type: 'doughnut',
+  data: {
+    labels: traffic.map(t => t.name),
+    datasets: [{
+      data: traffic.map(t => t.value),
+      backgroundColor: traffic.map(t => t.color),
+      borderColor: '#fff', borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '62%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
+        callbacks: { label: (ctx) => `  ${ctx.label}: ₩${ctx.parsed.toLocaleString()}` }
+      }
+    }
+  }
+});
+
+function makeChips(containerId, items, onToggle) {
+  const box = document.getElementById(containerId);
+  items.forEach((item, idx) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'chip on';
+    wrap.innerHTML = `<input type="checkbox" checked><span class="swatch" style="background:${item.color}"></span>${item.name}`;
+    wrap.querySelector('input').addEventListener('change', (e) => {
+      wrap.classList.toggle('on', e.target.checked);
+      wrap.classList.toggle('off', !e.target.checked);
+      onToggle(idx, e.target.checked);
+    });
+    box.appendChild(wrap);
+  });
+}
+
+// 상단 글로벌 채널 칩 — 모든 차트 동시 토글
+makeChips('globalChannelToggles', channels, (i, on) => {
+  trendChart.setDatasetVisibility(i, on);
+  trendChart.update();
+  const sMeta = salesChart.getDatasetMeta(0);
+  sMeta.data[i].hidden = !on;
+  salesChart.update();
+});
+
+makeChips('salesToggles', channels, (i, on) => {
+  const meta = salesChart.getDatasetMeta(0);
+  meta.data[i].hidden = !on;
+  salesChart.update();
+});
+
+makeChips('trafficToggles', traffic, (i, on) => {
+  const meta = trafficChart.getDatasetMeta(0);
+  meta.data[i].hidden = !on;
+  trafficChart.update();
+});
+
+const products = ['맘솔브 베이직세트','임산부 영양제','수유쿠션 디럭스','아기띠 슬링','유아 모빌','임산부 마사지기','아기 욕조','임산부 베개'];
+const baseSales = [980000, 720000, 540000, 410000, 320000, 260000, 180000, 120000];
+const mxDays = days.slice(-7);
+const rng2 = seedRand(7);
+const matrix = document.getElementById('matrixBody');
+mxDays.forEach(d => {
+  let row = `<tr><td>${d}</td>`;
+  let rowSum = 0;
+  products.forEach((p, i) => {
+    const v = Math.round(baseSales[i] * (0.5 + rng2() * 0.9) / 7);
+    rowSum += v;
+    let heat = '';
+    if (v > 150000) heat = 'heat-4';
+    else if (v > 100000) heat = 'heat-3';
+    else if (v > 50000) heat = 'heat-2';
+    else if (v > 20000) heat = 'heat-1';
+    row += `<td class="${heat}">${v ? v.toLocaleString() : '-'}</td>`;
+  });
+  row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
+  matrix.insertAdjacentHTML('beforeend', row);
+});
+
+// 노션식 네비 클릭 시 active 토글
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
