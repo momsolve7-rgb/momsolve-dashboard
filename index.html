@@ -526,6 +526,118 @@ document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.add('active');
   });
 });
+
+// ============================================================
+// 실 데이터 로드 — Google Sheets Apps Script Web App
+// 페이지 로드 시 더미 데이터를 시트 실 데이터로 덮어쓰기
+// ============================================================
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyNGX5eYtim8l65HwHEPi5YeDqwuP98xY_22CbpkE5q0agEbrdlFHTYYxzV8OpzEYHb/exec';
+
+async function loadRealData() {
+  try {
+    const res = await fetch(WEBAPP_URL + '?action=getDashboardData');
+    const data = await res.json();
+    if (!data.ok || !data.daily || !data.daily.length) {
+      console.warn('실 데이터 없음 - 더미 유지');
+      return;
+    }
+
+    // 채널 매핑: V5 channels 순서 ↔ 시트 키
+    const keys = ['cafe24','naver','coupang','kakao','mamitalk','ezwel','ezwel_voucher','babybilly'];
+    const daily14 = data.daily.slice(-14);
+    const last = daily14[daily14.length - 1];
+
+    // 1. channels.amount 갱신 (최신 행 = 어제 매출)
+    channels.forEach((c, i) => { c.amount = last[keys[i]] || 0; });
+
+    // 2. 일별 트렌드 라벨·데이터 교체
+    const newLabels = daily14.map(d => {
+      const dt = new Date(d.date);
+      return `${dt.getMonth()+1}/${dt.getDate()}`;
+    });
+    trendChart.data.labels = newLabels;
+    trendChart.data.datasets.forEach((ds, i) => {
+      ds.data = daily14.map(d => d[keys[i]] || 0);
+    });
+    trendChart.update();
+
+    // 3. 도넛 갱신
+    salesChart.data.datasets[0].data = channels.map(c => c.amount);
+    salesChart.update();
+
+    // 4. 채널별 순위 막대 다시 그리기
+    const rankBox = document.getElementById('rankList');
+    if (rankBox) {
+      rankBox.innerHTML = '';
+      const maxAmt2 = Math.max(...channels.map(c => c.amount), 1);
+      const sorted2 = [...channels].sort((a,b) => b.amount - a.amount);
+      sorted2.forEach(c => {
+        const w = (c.amount / maxAmt2 * 100).toFixed(1);
+        rankBox.insertAdjacentHTML('beforeend', `
+          <div class="rank-row">
+            <span style="font-weight:600;">${c.name}</span>
+            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
+            <span class="rank-amt">₩${(c.amount/1000).toFixed(0)}k</span>
+          </div>
+        `);
+      });
+    }
+
+    // 5. 제품 매트릭스 — 최근 7일 × Top 8 상품 (전체 기간 매출 합산 기준)
+    const prods = data.products || [];
+    if (prods.length > 0) {
+      // Top 8 상품
+      const productTotals = {};
+      prods.forEach(p => {
+        const key = p.productName;
+        if (!productTotals[key]) productTotals[key] = 0;
+        productTotals[key] += p.amount;
+      });
+      const top8 = Object.entries(productTotals)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0,8)
+        .map(e => e[0]);
+
+      // 매트릭스 헤더 교체
+      const matrixHead = document.querySelector('thead tr');
+      if (matrixHead) {
+        matrixHead.innerHTML = '<th>날짜</th>' + top8.map(p => `<th title="${p}">${p.slice(0,20)}</th>`).join('') + '<th>합계</th>';
+      }
+
+      // 매트릭스 body — 최근 7일 × Top 8
+      const recent7 = daily14.slice(-7).map(d => d.date);
+      const matrix = document.getElementById('matrixBody');
+      if (matrix) {
+        matrix.innerHTML = '';
+        recent7.forEach(date => {
+          let row = `<tr><td>${date.slice(5)}</td>`;
+          let rowSum = 0;
+          top8.forEach(pname => {
+            const amount = prods
+              .filter(p => p.date === date && p.productName === pname)
+              .reduce((a, p) => a + p.amount, 0);
+            rowSum += amount;
+            let heat = '';
+            if (amount > 1500000) heat = 'heat-4';
+            else if (amount > 1000000) heat = 'heat-3';
+            else if (amount > 500000) heat = 'heat-2';
+            else if (amount > 100000) heat = 'heat-1';
+            row += `<td class="${heat}">${amount ? amount.toLocaleString() : '-'}</td>`;
+          });
+          row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
+          matrix.insertAdjacentHTML('beforeend', row);
+        });
+      }
+    }
+
+    console.log('✅ 실 데이터 로드 완료:', daily14.length, '일');
+  } catch (e) {
+    console.error('실 데이터 로드 실패:', e);
+  }
+}
+
+// 페이지 로드 후 호출 (Chart.js 객체들 생성 직후)
+loadRealData();
 </script>
 
 </body>
