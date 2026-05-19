@@ -4,6 +4,8 @@
 # URL: https://momsolve7-rgb.github.io/momsolve-dashboard/ (~30초 후 라이브)
 
 $ErrorActionPreference = "Stop"
+# git 이 stderr 로 정보 메시지 (진행 상황) 출력하는 걸 에러로 잡지 않게
+$PSNativeCommandUseErrorActionPreference = $false
 
 $src = "C:\Users\yoriz\my-assistant\working\momsolve_orders_hub\dashboard_mockup_v5.html"
 $dst = "C:\Users\yoriz\my-assistant\projects\dashboard-deploy\index.html"
