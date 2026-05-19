@@ -7,20 +7,22 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #ffffff;
-    --bg-sidebar: #fbfbfa;
-    --bg-main: #ffffff;
-    --bg-soft: #f7f7f5;
-    --text: #37352f;
-    --text-soft: #787774;
-    --text-faint: #9b9a97;
-    --line: #ebebea;
-    --line-soft: #f1f1ef;
-    --blue: #2383e2;
-    --blue-soft: #e7f3f8;
-    --hover: rgba(55,53,47,0.06);
-    --selected: rgba(35,131,226,0.12);
-    --apple-blue: #007aff;
+    /* Apple dark-mode tile palette (per provided design spec) */
+    --bg: #1d1d1f;                 /* ink — deepest canvas */
+    --bg-sidebar: #252527;         /* surface-tile-3 */
+    --bg-main: #1d1d1f;
+    --bg-soft: #2a2a2c;            /* surface-tile-2 — KPI / soft chips */
+    --bg-card: #272729;            /* surface-tile-1 — cards */
+    --text: #ffffff;               /* body-on-dark */
+    --text-soft: #cccccc;          /* body-muted */
+    --text-faint: #7a7a7a;         /* ink-muted-48 */
+    --line: rgba(255,255,255,0.10);
+    --line-soft: rgba(255,255,255,0.06);
+    --blue: #2997ff;               /* primary-on-dark (Sky Link Blue) */
+    --blue-soft: rgba(41,151,255,0.16);
+    --hover: rgba(255,255,255,0.06);
+    --selected: rgba(41,151,255,0.18);
+    --apple-blue: #2997ff;
     --apple-green: #34c759;
     --apple-orange: #ff9500;
     --apple-red: #ff3b30;
@@ -123,11 +125,11 @@
     margin-right: 4px;
   }
 
-  /* 애플 스타일 체크박스 칩 */
+  /* 애플 스타일 체크박스 칩 (dark) */
   .chip {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 6px 12px; border-radius: 999px;
-    background: #f2f2f7; cursor: pointer; user-select: none;
+    background: rgba(255,255,255,0.06); cursor: pointer; user-select: none;
     font-size: 12.5px; font-weight: 500;
     transition: all 0.15s;
     border: 1px solid transparent;
@@ -136,18 +138,18 @@
   .chip input { display: none; }
   .chip .swatch { width: 8px; height: 8px; border-radius: 50%; }
   .chip.on {
-    background: #ffffff; border-color: var(--line); box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    background: var(--bg-card); border-color: var(--line);
   }
   .chip.off { opacity: 0.4; }
-  .chip.off .swatch { background: #c7c7cc !important; }
+  .chip.off .swatch { background: #555 !important; }
 
   .filter-select {
     padding: 7px 30px 7px 12px; border-radius: 8px;
-    border: 1px solid var(--line); background: #fff;
+    border: 1px solid var(--line); background: var(--bg-card);
     font-size: 13px; color: var(--text);
     font-family: inherit; cursor: pointer;
     -webkit-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23787774' d='M6 8L0 0h12z'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23cccccc' d='M6 8L0 0h12z'/></svg>");
     background-repeat: no-repeat; background-position: right 10px center;
   }
 
@@ -165,7 +167,7 @@
   .d.down { color: var(--apple-red); }
 
   .card {
-    background: #fff; border: 1px solid var(--line);
+    background: var(--bg-card); border: 1px solid var(--line);
     border-radius: 12px; padding: 22px;
   }
   .card-head {
@@ -184,7 +186,7 @@
     display: grid; grid-template-columns: 70px 1fr 80px;
     align-items: center; gap: 8px; font-size: 12px;
   }
-  .rank-bar-wrap { height: 8px; background: #f2f2f7; border-radius: 4px; overflow: hidden; }
+  .rank-bar-wrap { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
   .rank-bar { height: 100%; border-radius: 4px; }
   .rank-amt { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-soft); }
 
@@ -195,10 +197,10 @@
   }
   table.matrix th { color: var(--text-soft); font-weight: 500; font-size: 11.5px; }
   table.matrix td:first-child, table.matrix th:first-child { text-align: left; font-weight: 600; }
-  .heat-1 { background: rgba(52,199,89,0.06); }
-  .heat-2 { background: rgba(52,199,89,0.14); }
-  .heat-3 { background: rgba(52,199,89,0.24); }
-  .heat-4 { background: rgba(52,199,89,0.36); font-weight: 600; }
+  .heat-1 { background: rgba(52,199,89,0.12); }
+  .heat-2 { background: rgba(52,199,89,0.22); }
+  .heat-3 { background: rgba(52,199,89,0.38); }
+  .heat-4 { background: rgba(52,199,89,0.55); font-weight: 600; color: #fff; }
 </style>
 </head>
 <body>
@@ -419,10 +421,10 @@ const trendChart = new Chart(document.getElementById('trendChart'), {
       }
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#787774', font: { size: 11 } } },
+      x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
       y: {
-        grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
-        ticks: { color: '#787774', font: { size: 11 }, callback: (v) => '₩' + (v/1000) + 'k' }
+        grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
+        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => '₩' + (v/1000) + 'k' }
       }
     }
   }
@@ -435,7 +437,7 @@ const salesChart = new Chart(document.getElementById('salesChart'), {
     datasets: [{
       data: channels.map(c => c.amount),
       backgroundColor: channels.map(c => c.color),
-      borderColor: '#fff', borderWidth: 2,
+      borderColor: '#272729', borderWidth: 2,
     }]
   },
   options: {
