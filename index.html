@@ -648,11 +648,11 @@ function rerenderAll() {
   }
 
   // === KPI #3 — 선택 기간 주문 건수
-  document.getElementById('kpiCountValue').textContent = periodCount.toLocaleString() + (allChannels ? '' : '*');
+  document.getElementById('kpiCountValue').textContent = periodCount.toLocaleString();
   if (hasPrevPeriod && prevPeriodCount > 0) {
     const diff = periodCount - prevPeriodCount;
     const el = document.getElementById('kpiCountDelta');
-    el.textContent = '직전 동기간比 ' + fmtDelta(diff) + (allChannels ? '' : ' *전체기준');
+    el.textContent = '직전 동기간比 ' + fmtDelta(diff);
     el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiCountDelta').textContent = '직전 데이터 없음';
