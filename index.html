@@ -240,18 +240,19 @@
 
       <!-- ① 필터링 -->
       <div class="filter-row" style="margin-bottom: 10px;">
-        <span class="filter-label">① 필터</span>
+        <span class="filter-label">① 기간</span>
         <div class="filter-group">
-          <select class="filter-select" id="periodSelect">
-            <option value="14">최근 14일</option>
-            <option value="7">최근 7일</option>
-            <option value="month">이번 달</option>
-            <option value="lastmonth">지난 달</option>
-          </select>
+          <input type="date" class="filter-select" id="startDate" style="padding:7px 10px;">
+          <span style="color: var(--text-faint); font-size: 13px;">~</span>
+          <input type="date" class="filter-select" id="endDate" style="padding:7px 10px;">
         </div>
+        <div class="filter-group" style="margin-left: 8px;">
+          <button class="filter-select" id="quickRange" style="cursor:pointer;" type="button">최근 14일</button>
+        </div>
+        <span class="filter-label" style="margin-left: 16px;">② 제품</span>
         <div class="filter-group">
           <select class="filter-select" id="productSelect">
-            <option value="">전체 제품군 (상위 8개 자동)</option>
+            <option value="">전체 제품 (매출 합산)</option>
           </select>
         </div>
       </div>
@@ -269,7 +270,7 @@
       <!-- KPI -->
       <div class="kpis">
         <div class="kpi">
-          <div class="l" id="kpiTodayLabel">오늘 총매출</div>
+          <div class="l" id="kpiTodayLabel">어제 총매출</div>
           <div class="v" id="kpiTodayValue">—</div>
           <div class="d" id="kpiTodayDelta">—</div>
         </div>
@@ -279,12 +280,12 @@
           <div class="d" id="kpiMonthDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiCountLabel">오늘 주문 건수</div>
+          <div class="l" id="kpiCountLabel">어제 주문 건수</div>
           <div class="v" id="kpiCountValue">—</div>
           <div class="d" id="kpiCountDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiAovLabel">평균 주문 단가</div>
+          <div class="l" id="kpiAovLabel">어제 평균 주문 단가</div>
           <div class="v" id="kpiAovValue">—</div>
           <div class="d" id="kpiAovDelta">—</div>
         </div>
@@ -361,9 +362,10 @@ const channels = [
 
 // 시트 데이터 캐시 (loadRealData 가 채움)
 let SHEET = { daily: [], products: [] };
-// 현재 필터 상태
-let currentPeriod = 14;       // 14 / 7 / month / lastmonth
-let currentProduct = '';      // '' 면 Top 8 자동, 아니면 특정 제품명
+// 현재 필터 상태 (날짜 picker 기반)
+let currentStart = '';  // ISO 'YYYY-MM-DD'
+let currentEnd = '';
+let currentProduct = '';
 
 const trendChart = new Chart(document.getElementById('trendChart'), {
   type: 'line',
@@ -475,31 +477,11 @@ const fmtWon = (n) => '₩ ' + Math.round(n).toLocaleString();
 const fmtPct = (n) => (n >= 0 ? '▲ ' : '▼ ') + Math.abs(n).toFixed(1) + '%';
 const fmtDelta = (n) => (n >= 0 ? '▲ +' : '▼ ') + Math.abs(n).toLocaleString();
 
-// 기간에 따른 daily 행 필터
-function pickDailyByPeriod(period) {
-  const all = SHEET.daily;
-  if (!all.length) return [];
-  const lastDate = new Date(all[all.length - 1].date);
-  if (period === '7' || period === '14') {
-    const n = parseInt(period, 10);
-    return all.slice(-n);
-  }
-  if (period === 'month') {
-    const y = lastDate.getFullYear(), m = lastDate.getMonth();
-    return all.filter(d => {
-      const dt = new Date(d.date);
-      return dt.getFullYear() === y && dt.getMonth() === m;
-    });
-  }
-  if (period === 'lastmonth') {
-    const lastM = new Date(lastDate.getFullYear(), lastDate.getMonth() - 1, 1);
-    const y = lastM.getFullYear(), m = lastM.getMonth();
-    return all.filter(d => {
-      const dt = new Date(d.date);
-      return dt.getFullYear() === y && dt.getMonth() === m;
-    });
-  }
-  return all.slice(-14);
+// 기간(start~end)에 따른 daily 행 필터
+function pickDailyByRange(start, end) {
+  if (!SHEET.daily.length) return [];
+  if (!start || !end) return SHEET.daily.slice(-14);
+  return SHEET.daily.filter(d => d.date >= start && d.date <= end);
 }
 
 // KPI + 헤더 + 차트 전부 다시 그리기
@@ -520,7 +502,7 @@ function rerenderAll() {
   if (prev && prevTotal > 0) {
     const pct = (todayTotal - prevTotal) / prevTotal * 100;
     const el = document.getElementById('kpiTodayDelta');
-    el.textContent = '어제比 ' + fmtPct(pct);
+    el.textContent = '그제比 ' + fmtPct(pct);
     el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiTodayDelta').textContent = '-';
@@ -559,7 +541,7 @@ function rerenderAll() {
   if (prev) {
     const diff = todayCount - prevCount;
     const el = document.getElementById('kpiCountDelta');
-    el.textContent = '어제比 ' + fmtDelta(diff);
+    el.textContent = '그제比 ' + fmtDelta(diff);
     el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiCountDelta').textContent = '-';
@@ -572,14 +554,14 @@ function rerenderAll() {
   if (prev && prevAov > 0) {
     const pct = (todayAov - prevAov) / prevAov * 100;
     const el = document.getElementById('kpiAovDelta');
-    el.textContent = '어제比 ' + fmtPct(pct);
+    el.textContent = '그제比 ' + fmtPct(pct);
     el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiAovDelta').textContent = '-';
   }
 
   // === 일별 트렌드 그래프 (기간 필터 반영)
-  const periodDaily = pickDailyByPeriod(currentPeriod);
+  const periodDaily = pickDailyByRange(currentStart, currentEnd);
   const labels = periodDaily.map(d => {
     const dt = new Date(d.date);
     return `${dt.getMonth()+1}/${dt.getDate()}`;
@@ -687,9 +669,56 @@ function populateProductSelect() {
     + sorted.map(([name]) => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
 }
 
-async function loadRealData() {
+// 기본 기간을 최근 14일로 (시트 최신 날짜 기준)
+function setDefaultRange() {
+  if (!SHEET.daily.length) return;
+  const last = SHEET.daily[SHEET.daily.length - 1].date;
+  const lastDt = new Date(last);
+  const startDt = new Date(lastDt);
+  startDt.setDate(startDt.getDate() - 13);
+  const fmt = (dt) => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+  currentStart = fmt(startDt);
+  currentEnd = last;
+  document.getElementById('startDate').value = currentStart;
+  document.getElementById('endDate').value = currentEnd;
+  // date picker min/max 를 시트 데이터 범위로 제한
+  const first = SHEET.daily[0].date;
+  document.getElementById('startDate').min = first;
+  document.getElementById('startDate').max = last;
+  document.getElementById('endDate').min = first;
+  document.getElementById('endDate').max = last;
+}
+
+// localStorage 캐시 (5분 TTL) — 두번째 방문부턴 즉시 표시
+const CACHE_KEY = 'momsolve_dashboard_v1';
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readCache() {
   try {
-    document.getElementById('headerDate').textContent = '시트 데이터 로딩 중...';
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj.ts || Date.now() - obj.ts > CACHE_TTL_MS) return null;
+    return obj.data;
+  } catch (e) { return null; }
+}
+function writeCache(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch (e) { /* quota 초과 등 무시 */ }
+}
+
+function applyData(data, fromCache) {
+  SHEET.daily = data.daily || [];
+  SHEET.products = data.products || [];
+  populateProductSelect();
+  setDefaultRange();
+  rerenderAll();
+  console.log((fromCache ? '⚡ 캐시 ' : '✅ 시트 ') + '로드 완료:', SHEET.daily.length, '일 /', SHEET.products.length, '제품행');
+}
+
+async function fetchFromSheet() {
+  try {
     const res = await fetch(WEBAPP_URL + '?action=getDashboardData');
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.daily)) {
@@ -697,24 +726,43 @@ async function loadRealData() {
       console.warn('시트 응답:', data);
       return;
     }
-    SHEET.daily = data.daily;
-    SHEET.products = data.products || [];
-    populateProductSelect();
-    rerenderAll();
-    console.log('✅ 시트 로드 완료:', SHEET.daily.length, '일 /', SHEET.products.length, '제품행');
+    writeCache(data);
+    applyData(data, false);
   } catch (e) {
-    document.getElementById('headerDate').textContent = '시트 로딩 실패 — F12 콘솔 확인';
+    if (!SHEET.daily.length) {
+      document.getElementById('headerDate').textContent = '시트 로딩 실패 — F12 콘솔 확인';
+    }
     console.error('시트 로드 실패:', e);
   }
 }
 
+async function loadRealData() {
+  // 1) 캐시 있으면 즉시 렌더 (즉각 반응) + 백그라운드에서 최신 가져오기
+  const cached = readCache();
+  if (cached) {
+    applyData(cached, true);
+  } else {
+    document.getElementById('headerDate').textContent = '시트 데이터 로딩 중... (첫 방문 5~7초)';
+  }
+  // 2) 백그라운드에서 최신 가져와 화면 갱신
+  await fetchFromSheet();
+}
+
 // 필터 변경 시 재렌더
-document.getElementById('periodSelect').addEventListener('change', (e) => {
-  currentPeriod = e.target.value;
+document.getElementById('startDate').addEventListener('change', (e) => {
+  currentStart = e.target.value;
+  rerenderAll();
+});
+document.getElementById('endDate').addEventListener('change', (e) => {
+  currentEnd = e.target.value;
   rerenderAll();
 });
 document.getElementById('productSelect').addEventListener('change', (e) => {
   currentProduct = e.target.value;
+  rerenderAll();
+});
+document.getElementById('quickRange').addEventListener('click', () => {
+  setDefaultRange();
   rerenderAll();
 });
 
