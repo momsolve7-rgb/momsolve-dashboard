@@ -152,6 +152,34 @@
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23cccccc' d='M6 8L0 0h12z'/></svg>");
     background-repeat: no-repeat; background-position: right 10px center;
   }
+  /* 빠른 기간 버튼 — 셀렉트와 같은 톤이지만 화살표 X + 라운드 + 충분한 padding */
+  button.quick-btn {
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg-card);
+    font-size: 12.5px; font-weight: 500; color: var(--text);
+    font-family: inherit; cursor: pointer;
+    background-image: none;
+    line-height: 1.4;
+    letter-spacing: 0;
+    white-space: nowrap;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button.quick-btn:hover { background: var(--hover); border-color: rgba(255,255,255,0.18); }
+  button.quick-btn:active { background: var(--selected); }
+
+  /* 날짜 picker — native 화살표 사용, custom 화살표 제거, padding 충분히 */
+  input[type="date"].filter-select {
+    padding: 7px 12px;
+    background-image: none;
+    min-width: 142px;
+    font-variant-numeric: tabular-nums;
+    color-scheme: dark;
+  }
+  input[type="date"].filter-select::-webkit-calendar-picker-indicator {
+    filter: invert(0.6);
+    cursor: pointer;
+    margin-left: 4px;
+  }
 
   /* 컨텐츠 영역 */
   .content { padding: 24px 36px 60px; }
@@ -260,16 +288,16 @@
       <div class="filter-row" style="margin-bottom: 10px;">
         <span class="filter-label">① 기간</span>
         <div class="filter-group">
-          <input type="date" class="filter-select" id="startDate" style="padding:7px 10px;">
+          <input type="date" class="filter-select" id="startDate">
           <span style="color: var(--text-faint); font-size: 13px;">~</span>
-          <input type="date" class="filter-select" id="endDate" style="padding:7px 10px;">
+          <input type="date" class="filter-select" id="endDate">
         </div>
-        <div class="filter-group" style="margin-left: 8px; gap: 4px;">
-          <button class="filter-select quick-btn" data-range="yesterday" type="button" style="cursor:pointer; padding: 7px 10px;">어제</button>
-          <button class="filter-select quick-btn" data-range="7" type="button" style="cursor:pointer; padding: 7px 10px;">최근 7일</button>
-          <button class="filter-select quick-btn" data-range="14" type="button" style="cursor:pointer; padding: 7px 10px;">최근 14일</button>
-          <button class="filter-select quick-btn" data-range="month" type="button" style="cursor:pointer; padding: 7px 10px;">이번 달</button>
-          <button class="filter-select quick-btn" data-range="lastmonth" type="button" style="cursor:pointer; padding: 7px 10px;">지난 달</button>
+        <div class="filter-group" style="margin-left: 8px; gap: 6px;">
+          <button class="quick-btn" data-range="yesterday" type="button">어제</button>
+          <button class="quick-btn" data-range="7" type="button">최근 7일</button>
+          <button class="quick-btn" data-range="14" type="button">최근 14일</button>
+          <button class="quick-btn" data-range="month" type="button">이번 달</button>
+          <button class="quick-btn" data-range="lastmonth" type="button">지난 달</button>
         </div>
       </div>
 
@@ -283,10 +311,10 @@
     <!-- 컨텐츠 -->
     <div class="content">
 
-      <!-- KPI -->
+      <!-- KPI (선택 기간 기준) -->
       <div class="kpis">
         <div class="kpi">
-          <div class="l" id="kpiTodayLabel">어제 총매출</div>
+          <div class="l" id="kpiTodayLabel">선택 기간 총매출</div>
           <div class="v" id="kpiTodayValue">—</div>
           <div class="d" id="kpiTodayDelta">—</div>
         </div>
@@ -296,12 +324,12 @@
           <div class="d" id="kpiMonthDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiCountLabel">어제 주문 건수</div>
+          <div class="l" id="kpiCountLabel">선택 기간 주문 건수</div>
           <div class="v" id="kpiCountValue">—</div>
           <div class="d" id="kpiCountDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiAovLabel">어제 평균 주문 단가</div>
+          <div class="l" id="kpiAovLabel">선택 기간 평균 주문 단가</div>
           <div class="v" id="kpiAovValue">—</div>
           <div class="d" id="kpiAovDelta">—</div>
         </div>
@@ -547,7 +575,40 @@ function rerenderAll() {
   // === 헤더 날짜
   document.getElementById('headerDate').textContent = last.date;
 
-  // === KPI 4개 (total 은 활성 채널 합산, count/aov 는 전체 채널 — 시트에 채널별 count 없음)
+  // === 선택 기간 데이터 (KPI 합산용)
+  const periodDailyForKpi = pickDailyByRange(currentStart, currentEnd);
+  const periodTotal = periodDailyForKpi.reduce((a, d) => a + calcDayTotal(d), 0);
+  const periodCount = periodDailyForKpi.reduce((a, d) => a + (d.count || 0), 0);
+
+  // 직전 동기간 — 같은 일수 만큼 앞쪽
+  let prevPeriodTotal = 0, prevPeriodCount = 0, hasPrevPeriod = false;
+  if (periodDailyForKpi.length > 0) {
+    const days = periodDailyForKpi.length;
+    const firstDate = periodDailyForKpi[0].date;
+    const startIdx = SHEET.daily.findIndex(d => d.date === firstDate);
+    if (startIdx > 0) {
+      const prevStart = Math.max(0, startIdx - days);
+      const prevDaily = SHEET.daily.slice(prevStart, startIdx);
+      if (prevDaily.length > 0) {
+        prevPeriodTotal = prevDaily.reduce((a, d) => a + calcDayTotal(d), 0);
+        prevPeriodCount = prevDaily.reduce((a, d) => a + (d.count || 0), 0);
+        hasPrevPeriod = true;
+      }
+    }
+  }
+
+  // === KPI #1 — 선택 기간 총매출
+  document.getElementById('kpiTodayValue').textContent = fmtWon(periodTotal);
+  if (hasPrevPeriod && prevPeriodTotal > 0) {
+    const pct = (periodTotal - prevPeriodTotal) / prevPeriodTotal * 100;
+    const el = document.getElementById('kpiTodayDelta');
+    el.textContent = '직전 동기간比 ' + fmtPct(pct);
+    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
+  } else {
+    document.getElementById('kpiTodayDelta').textContent = '직전 데이터 없음';
+  }
+
+  // (옛 last/prev 비교 변수는 이번 달 누적/AOV 계산에서 사용)
   const todayTotal = calcDayTotal(last);
   const prevTotal = prev ? calcDayTotal(prev) : 0;
   document.getElementById('kpiTodayValue').textContent = fmtWon(todayTotal);
