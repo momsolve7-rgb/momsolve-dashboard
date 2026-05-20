@@ -853,10 +853,11 @@ function keyOf(p) {
   return dispOf(p);
 }
 
-// 제품 드롭다운 — displayName 단위
+// 제품 드롭다운 — displayName 단위 (현재 선택 유지)
 function populateProductSelect() {
   const sel = document.getElementById('productSelect');
   if (!sel) return;
+  const prevValue = sel.value || currentProduct;
   buildPidToDisp();
   const groups = {};
   (SHEET.products || []).forEach(p => {
@@ -868,6 +869,10 @@ function populateProductSelect() {
   const sorted = Object.entries(groups).sort((a, b) => b[1] - a[1]);
   sel.innerHTML = `<option value="">전체 제품 (매출 합산)</option>`
     + sorted.map(([key]) => `<option value="${key}">${key}</option>`).join('');
+  // 이전 선택 복원
+  if (prevValue && [...sel.options].some(o => o.value === prevValue)) {
+    sel.value = prevValue;
+  }
 }
 
 // 기본 기간: 종료일 = 어제 (오늘은 아직 적재 X) / 시작일 = 14일 전
@@ -996,8 +1001,16 @@ document.getElementById('productSelect').addEventListener('change', (e) => {
 });
 document.getElementById('optionSelect').addEventListener('change', (e) => {
   currentOption = e.target.value;
-  currentProduct = '';
+  // currentProduct 유지 (영종님 선택 보존)
   populateProductSelect();
+  // 드롭다운에 현재 선택 복원
+  const sel = document.getElementById('productSelect');
+  if (currentProduct && [...sel.options].some(o => o.value === currentProduct)) {
+    sel.value = currentProduct;
+  } else {
+    currentProduct = '';
+    sel.value = '';
+  }
   rerenderAll();
 });
 // 빠른 기간 버튼 — 모두 picker 의 날짜를 수정 + 재렌더 (어제 기준)
