@@ -232,12 +232,9 @@
     <div class="filter-bar">
       <!-- 미니 breadcrumb (작게) -->
       <div class="filter-top" style="margin-bottom: 12px;">
-        <div class="breadcrumb" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div class="breadcrumb">
           📈 <strong style="color: var(--text);">통합 매출 현황</strong>
-          <span class="sep">·</span> <span id="headerDate">로딩 중...</span>
-          <span class="sep">·</span> 매일 05:00 자동 갱신
-          <button id="refreshBtn" type="button" style="background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px;">🔄 수동 갱신</button>
-          <span id="lastRefresh" style="color:var(--text-faint); font-size:11.5px;">마지막 갱신: —</span>
+          <span class="sep">·</span> <span id="headerDate">로딩 중...</span> · 매일 05:00 자동 갱신
         </div>
       </div>
 
@@ -973,7 +970,6 @@ async function manualRefresh() {
 }
 
 async function loadRealData() {
-  setLastRefreshDisplay();
   // 1) 캐시 있으면 즉시 렌더 (즉각 반응) + 백그라운드에서 최신 가져오기
   const cached = readCache();
   if (cached) {
@@ -984,9 +980,6 @@ async function loadRealData() {
   // 2) 백그라운드에서 최신 가져와 화면 갱신
   await fetchFromSheet();
 }
-
-// 수동 갱신 버튼
-document.getElementById('refreshBtn').addEventListener('click', manualRefresh);
 
 // 필터 변경 시 재렌더
 document.getElementById('startDate').addEventListener('change', (e) => {
