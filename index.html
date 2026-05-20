@@ -250,7 +250,7 @@
           <input type="date" class="filter-select" id="endDate" style="padding:7px 10px;">
         </div>
         <div class="filter-group" style="margin-left: 8px; gap: 4px;">
-          <button class="filter-select quick-btn" data-range="today" type="button" style="cursor:pointer; padding: 7px 10px;">오늘</button>
+          <button class="filter-select quick-btn" data-range="yesterday" type="button" style="cursor:pointer; padding: 7px 10px;">어제</button>
           <button class="filter-select quick-btn" data-range="7" type="button" style="cursor:pointer; padding: 7px 10px;">최근 7일</button>
           <button class="filter-select quick-btn" data-range="14" type="button" style="cursor:pointer; padding: 7px 10px;">최근 14일</button>
           <button class="filter-select quick-btn" data-range="month" type="button" style="cursor:pointer; padding: 7px 10px;">이번 달</button>
@@ -283,7 +283,7 @@
       <!-- KPI -->
       <div class="kpis">
         <div class="kpi">
-          <div class="l" id="kpiTodayLabel">오늘 총매출</div>
+          <div class="l" id="kpiTodayLabel">어제 총매출</div>
           <div class="v" id="kpiTodayValue">—</div>
           <div class="d" id="kpiTodayDelta">—</div>
         </div>
@@ -293,12 +293,12 @@
           <div class="d" id="kpiMonthDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiCountLabel">오늘 주문 건수</div>
+          <div class="l" id="kpiCountLabel">어제 주문 건수</div>
           <div class="v" id="kpiCountValue">—</div>
           <div class="d" id="kpiCountDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiAovLabel">오늘 평균 주문 단가</div>
+          <div class="l" id="kpiAovLabel">어제 평균 주문 단가</div>
           <div class="v" id="kpiAovValue">—</div>
           <div class="d" id="kpiAovDelta">—</div>
         </div>
@@ -550,7 +550,7 @@ function rerenderAll() {
   if (prev && prevTotal > 0) {
     const pct = (todayTotal - prevTotal) / prevTotal * 100;
     const el = document.getElementById('kpiTodayDelta');
-    el.textContent = '어제比 ' + fmtPct(pct);
+    el.textContent = '그제比 ' + fmtPct(pct);
     el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiTodayDelta').textContent = '-';
@@ -589,7 +589,7 @@ function rerenderAll() {
   if (prev) {
     const diff = todayCount - prevCount;
     const el = document.getElementById('kpiCountDelta');
-    el.textContent = '어제比 ' + fmtDelta(diff) + (allChannels ? '' : ' *전체기준');
+    el.textContent = '그제比 ' + fmtDelta(diff) + (allChannels ? '' : ' *전체기준');
     el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiCountDelta').textContent = '-';
@@ -602,7 +602,7 @@ function rerenderAll() {
   if (prev && prevAov > 0) {
     const pct = (todayAov - prevAov) / prevAov * 100;
     const el = document.getElementById('kpiAovDelta');
-    el.textContent = '어제比 ' + fmtPct(pct);
+    el.textContent = '그제比 ' + fmtPct(pct);
     el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiAovDelta').textContent = '-';
@@ -832,18 +832,18 @@ function populateProductSelect() {
     + sorted.map(([key]) => `<option value="${key}">${key}</option>`).join('');
 }
 
-// 기본 기간: 종료일 = 오늘 / 시작일 = 14일 전 (시트 매일 갱신되면 자동으로 따라옴)
+// 기본 기간: 종료일 = 어제 (오늘은 아직 적재 X) / 시작일 = 14일 전
 function setDefaultRange() {
   if (!SHEET.daily.length) return;
   const fmt = (dt) => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
   const today = new Date();
-  const startDt = new Date(today);
-  startDt.setDate(startDt.getDate() - 13);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const startDt = new Date(yesterday); startDt.setDate(startDt.getDate() - 13);
   currentStart = fmt(startDt);
-  currentEnd = fmt(today);
+  currentEnd = fmt(yesterday);
   document.getElementById('startDate').value = currentStart;
   document.getElementById('endDate').value = currentEnd;
-  // picker 선택 가능 범위 — 시트 first ~ 오늘
+  // picker 선택 가능 범위 — 시트 first ~ 어제 (오늘은 클릭 못하게)
   const first = SHEET.daily[0].date;
   document.getElementById('startDate').min = first;
   document.getElementById('startDate').max = currentEnd;
@@ -967,21 +967,23 @@ document.getElementById('optionToggle').addEventListener('change', (e) => {
   populateProductSelect();
   rerenderAll();
 });
-// 빠른 기간 버튼 — 모두 picker 의 날짜를 수정 + 재렌더
+// 빠른 기간 버튼 — 모두 picker 의 날짜를 수정 + 재렌더 (어제 기준)
 function applyQuickRange(range) {
   const fmt = (dt) => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
   const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
   let s, e;
-  if (range === 'today') {
-    s = e = fmt(today);
+  if (range === 'yesterday') {
+    s = e = fmt(yesterday);
   } else if (range === '7' || range === '14') {
     const n = parseInt(range, 10);
-    const startDt = new Date(today);
+    const startDt = new Date(yesterday);
     startDt.setDate(startDt.getDate() - (n - 1));
-    s = fmt(startDt); e = fmt(today);
+    s = fmt(startDt); e = fmt(yesterday);
   } else if (range === 'month') {
     s = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
-    e = fmt(today);
+    e = fmt(yesterday);  // 이번달 1일~어제
+    if (s > e) s = e;     // 이번달 1일이 어제보다 늦으면 (월 첫날) 한 점
   } else if (range === 'lastmonth') {
     s = fmt(new Date(today.getFullYear(), today.getMonth() - 1, 1));
     e = fmt(new Date(today.getFullYear(), today.getMonth(), 0));
