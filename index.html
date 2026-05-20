@@ -259,6 +259,12 @@
             <option value="">전체 제품 (매출 합산)</option>
           </select>
         </div>
+        <div class="filter-group" style="margin-left: 8px;">
+          <label class="chip" style="cursor:pointer;" id="optionToggleLabel">
+            <input type="checkbox" id="optionToggle">
+            <span style="font-size:12px;">옵션별 보기</span>
+          </label>
+        </div>
       </div>
 
       <!-- ② 체크박스 (채널) -->
@@ -370,6 +376,7 @@ let SHEET = { daily: [], products: [] };
 let currentStart = '';  // ISO 'YYYY-MM-DD'
 let currentEnd = '';
 let currentProduct = '';
+let currentByOption = false;   // 옵션별 보기 토글
 
 const trendChart = new Chart(document.getElementById('trendChart'), {
   type: 'line',
@@ -613,17 +620,17 @@ function rerenderAll() {
     }
   }
 
-  // === 제품 매트릭스 — displayName 단위 (라인_제품군. 채널 통합, 옵션 합산)
+  // === 제품 매트릭스 — 토글 상태에 따라 displayName 또는 displayName_옵션
   const periodDates = new Set(periodDaily.map(d => d.date));
   const prodsInRange = (SHEET.products || []).filter(p => periodDates.has(p.date));
 
-  // displayName -> { total, daily: {date->amount} } 그룹핑
+  // key -> { total, daily: {date->amount} } 그룹핑
   const dispGroups = {};
   prodsInRange.forEach(p => {
-    const disp = dispOf(p);
-    if (!dispGroups[disp]) dispGroups[disp] = { total: 0, daily: {} };
-    dispGroups[disp].total += p.amount || 0;
-    dispGroups[disp].daily[p.date] = (dispGroups[disp].daily[p.date] || 0) + (p.amount || 0);
+    const key = keyOf(p);
+    if (!dispGroups[key]) dispGroups[key] = { total: 0, daily: {} };
+    dispGroups[key].total += p.amount || 0;
+    dispGroups[key].daily[p.date] = (dispGroups[key].daily[p.date] || 0) + (p.amount || 0);
   });
 
   // 컬럼: 특정 제품 선택됐으면 그것만, 아니면 매출 Top 8
@@ -745,20 +752,49 @@ function dispOf(p) {
   return _pidToDispCache[pid] || makeDisplayName(p.productName);
 }
 
-// 제품 드롭다운 — displayName 단위로 묶기 (자사몰·네이버 같은 제품군 통합)
+// 옵션값 추출: productName 끝의 용량(Xml/Xg/X개) 또는 프로모션(X+X) 또는 짧은 옵션값 단독 행
+function extractOption(productName) {
+  if (!productName) return '';
+  const n = productName.trim();
+  // 1. 풀네임 끝의 용량·프로모션
+  const m = n.match(/(\d+\s*(?:ml|ML|g|G|개|kg|KG))\b/);
+  if (m) return m[1].replace(/\s/g, '').toLowerCase();
+  const promo = n.match(/(\d+\+\d+)/);
+  if (promo) return promo[1];
+  // 2. 짧은 옵션값 단독 행 (네이버 케이스: '100ml', '30ml' 같은 행)
+  const productKeywords = ['살성크림','살성오일','수분크림','스킨토너','스킨 토너','에멀전','착색앰플','착색 앰플','양배추크림','양배추 크림','아기살성크림','아기 살성크림','오일미스트','토너','앰플','유선크림','베이비크림','베이비 크림','세트'];
+  const hasProductKw = productKeywords.some(k => n.includes(k));
+  if (!hasProductKw && n.length <= 12) return n;
+  return '기본';
+}
+
+// 옵션 포함 displayName (옵션별 보기 ON 시 사용)
+function dispWithOption(p) {
+  const base = dispOf(p);
+  const opt = extractOption(p.productName);
+  return (opt && opt !== '기본') ? `${base}_${opt}` : base;
+}
+
+// 옵션별 보기 토글에 따라 적절한 키
+function keyOf(p) {
+  return currentByOption ? dispWithOption(p) : dispOf(p);
+}
+
+// 제품 드롭다운 — 토글 상태에 따라 displayName 또는 displayName_옵션
 function populateProductSelect() {
   const sel = document.getElementById('productSelect');
   if (!sel) return;
   buildPidToDisp();
   const groups = {};
   (SHEET.products || []).forEach(p => {
-    const disp = dispOf(p);
-    if (!groups[disp]) groups[disp] = 0;
-    groups[disp] += p.amount || 0;
+    const key = keyOf(p);
+    if (!groups[key]) groups[key] = 0;
+    groups[key] += p.amount || 0;
   });
   const sorted = Object.entries(groups).sort((a, b) => b[1] - a[1]);
-  sel.innerHTML = '<option value="">전체 제품 (매출 합산)</option>'
-    + sorted.map(([disp]) => `<option value="${disp}">${disp}</option>`).join('');
+  const placeholder = currentByOption ? '전체 제품·옵션 (매출 합산)' : '전체 제품 (매출 합산)';
+  sel.innerHTML = `<option value="">${placeholder}</option>`
+    + sorted.map(([key]) => `<option value="${key}">${key}</option>`).join('');
 }
 
 // 기본 기간: 종료일 = 오늘 / 시작일 = 14일 전 (시트 매일 갱신되면 자동으로 따라옴)
@@ -850,6 +886,13 @@ document.getElementById('endDate').addEventListener('change', (e) => {
 });
 document.getElementById('productSelect').addEventListener('change', (e) => {
   currentProduct = e.target.value;
+  rerenderAll();
+});
+document.getElementById('optionToggle').addEventListener('change', (e) => {
+  currentByOption = e.target.checked;
+  document.getElementById('optionToggleLabel').classList.toggle('on', e.target.checked);
+  currentProduct = '';  // 토글 변경 시 제품 선택 초기화 (키 형식 바뀌므로)
+  populateProductSelect();
   rerenderAll();
 });
 // 빠른 기간 버튼 — 모두 picker 의 날짜를 수정 + 재렌더
