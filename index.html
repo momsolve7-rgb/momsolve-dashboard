@@ -613,28 +613,43 @@ function rerenderAll() {
     }
   }
 
-  // === 제품 매트릭스 (기간 + 제품 필터 반영)
+  // === 제품 매트릭스 — productId 단위 그룹핑 (같은 제품의 옵션 합산)
   const periodDates = new Set(periodDaily.map(d => d.date));
-  let prods = (SHEET.products || []).filter(p => periodDates.has(p.date));
-  if (currentProduct) {
-    prods = prods.filter(p => p.productName === currentProduct);
-  }
+  const prodsInRange = (SHEET.products || []).filter(p => periodDates.has(p.date));
 
-  // 컬럼: 선택 제품 있으면 그 제품만, 없으면 Top 8
+  // productId -> { repName, total, daily: {date->amount} } 그룹핑
+  const pidGroups = {};
+  prodsInRange.forEach(p => {
+    const pid = String(p.productId || p.productName || 'unknown');
+    if (!pidGroups[pid]) pidGroups[pid] = { names: [], total: 0, daily: {} };
+    pidGroups[pid].total += p.amount || 0;
+    if (p.productName) pidGroups[pid].names.push(p.productName);
+    pidGroups[pid].daily[p.date] = (pidGroups[pid].daily[p.date] || 0) + (p.amount || 0);
+  });
+  // 각 그룹의 대표 이름 = 가장 긴 productName (=풀네임)
+  Object.values(pidGroups).forEach(g => {
+    g.repName = g.names.length
+      ? [...new Set(g.names)].sort((a, b) => b.length - a.length)[0]
+      : '(이름 없음)';
+  });
+
+  // 컬럼 선택: 특정 productId 선택됐으면 그것만, 아니면 매출 Top 8
   let cols = [];
-  if (currentProduct) {
-    cols = [currentProduct];
+  if (currentProduct && pidGroups[currentProduct]) {
+    const g = pidGroups[currentProduct];
+    cols = [{ pid: currentProduct, repName: g.repName, daily: g.daily }];
   } else {
-    const totals = {};
-    prods.forEach(p => { totals[p.productName] = (totals[p.productName] || 0) + (p.amount || 0); });
-    cols = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+    cols = Object.entries(pidGroups)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 8)
+      .map(([pid, g]) => ({ pid, repName: g.repName, daily: g.daily }));
   }
 
   // thead
   const matrixHead = document.getElementById('matrixHead');
   if (matrixHead) {
     matrixHead.innerHTML = '<tr><th>날짜</th>'
-      + cols.map(c => `<th title="${c}">${c.length > 20 ? c.slice(0, 20) + '…' : c}</th>`).join('')
+      + cols.map(c => `<th title="${c.repName.replace(/"/g, '&quot;')}">${c.repName.length > 22 ? c.repName.slice(0, 22) + '…' : c.repName}</th>`).join('')
       + '<th>합계</th></tr>';
   }
 
@@ -645,15 +660,11 @@ function rerenderAll() {
     if (cols.length === 0) {
       matrixBody.innerHTML = `<tr><td colspan="2" style="color:var(--text-faint); text-align:center; padding:24px;">선택 기간 제품 매출 없음</td></tr>`;
     } else {
-      // 매트릭스 행: 최근 14일 이내면 전체, 이번/지난 달이면 그 달 전체
-      const matrixDates = periodDaily.map(d => d.date);
-      matrixDates.forEach(date => {
-        let row = `<tr><td>${date.slice(5)}</td>`;
+      periodDaily.forEach(d => {
+        let row = `<tr><td>${d.date.slice(5)}</td>`;
         let rowSum = 0;
-        cols.forEach(pname => {
-          const amt = prods
-            .filter(p => p.date === date && p.productName === pname)
-            .reduce((a, p) => a + (p.amount || 0), 0);
+        cols.forEach(c => {
+          const amt = c.daily[d.date] || 0;
           rowSum += amt;
           let heat = '';
           if (amt > 1500000) heat = 'heat-4';
@@ -669,17 +680,26 @@ function rerenderAll() {
   }
 }
 
-// 제품 드롭다운 옵션을 시트 데이터로 동적 채움 (전체 기간 매출 큰 순)
+// 제품 드롭다운 옵션 — productId 단위로 그룹핑 (옵션값 합산, 대표 이름=풀네임)
 function populateProductSelect() {
   const sel = document.getElementById('productSelect');
   if (!sel) return;
-  const totals = {};
+  const groups = {};
   (SHEET.products || []).forEach(p => {
-    totals[p.productName] = (totals[p.productName] || 0) + (p.amount || 0);
+    const pid = String(p.productId || p.productName || 'unknown');
+    if (!groups[pid]) groups[pid] = { names: [], total: 0 };
+    groups[pid].total += p.amount || 0;
+    if (p.productName) groups[pid].names.push(p.productName);
   });
-  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  sel.innerHTML = '<option value="">전체 제품군 (상위 8개 자동)</option>'
-    + sorted.map(([name]) => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
+  const sorted = Object.entries(groups)
+    .map(([pid, g]) => ({
+      pid,
+      total: g.total,
+      repName: g.names.length ? [...new Set(g.names)].sort((a, b) => b.length - a.length)[0] : pid
+    }))
+    .sort((a, b) => b.total - a.total);
+  sel.innerHTML = '<option value="">전체 제품 (매출 합산)</option>'
+    + sorted.map(s => `<option value="${s.pid}">${s.repName.replace(/"/g, '&quot;')}</option>`).join('');
 }
 
 // 기본 기간: 종료일 = 오늘 / 시작일 = 14일 전 (시트 매일 갱신되면 자동으로 따라옴)
