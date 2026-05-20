@@ -262,11 +262,13 @@
             <option value="">전체 제품 (매출 합산)</option>
           </select>
         </div>
-        <div class="filter-group" style="margin-left: 8px;">
-          <label class="chip" style="cursor:pointer;" id="optionToggleLabel">
-            <input type="checkbox" id="optionToggle">
-            <span style="font-size:12px;">옵션</span>
-          </label>
+        <span class="filter-label" style="margin-left: 8px;">옵션</span>
+        <div class="filter-group">
+          <select class="filter-select" id="optionSelect">
+            <option value="all">전체</option>
+            <option value="single">단품</option>
+            <option value="bundle">3+1개</option>
+          </select>
         </div>
       </div>
 
@@ -396,7 +398,7 @@ let SHEET = { daily: [], products: [] };
 let currentStart = '';  // ISO 'YYYY-MM-DD'
 let currentEnd = '';
 let currentProduct = '';
-let currentByOption = false;   // 옵션별 보기 토글
+let currentOption = 'all';   // 'all' | 'single' | 'bundle'
 
 const trendChart = new Chart(document.getElementById('trendChart'), {
   type: 'line',
@@ -650,13 +652,14 @@ function rerenderAll() {
     }
   }
 
-  // === 제품 매트릭스 — 토글 상태에 따라 displayName 또는 displayName_옵션 + 활성 채널만
+  // === 제품 매트릭스 — displayName 단위 + 활성 채널 + 옵션 필터
   const periodDates = new Set(periodDaily.map(d => d.date));
   const activeChSet = activeChannelKeySet();
   const prodsInRange = (SHEET.products || []).filter(p => {
     if (!periodDates.has(p.date)) return false;
+    if (!passesOptionFilter(p)) return false;
     const chKey = productChannelToKey(p.channel);
-    return chKey ? activeChSet.has(chKey) : true; // 매핑 안 되는 채널은 통과 (안전)
+    return chKey ? activeChSet.has(chKey) : true;
   });
 
   // key -> { total, daily: {date->amount} } 그룹핑
@@ -803,32 +806,46 @@ function extractOption(productName) {
   return '기본';
 }
 
-// 옵션 포함 displayName (옵션별 보기 ON 시 사용)
-function dispWithOption(p) {
-  const base = dispOf(p);
-  const opt = extractOption(p.productName);
-  return (opt && opt !== '기본') ? `${base}_${opt}` : base;
+// 옵션 종류 추출: 'single' | 'bundle'
+// 시트의 option_name 컬럼이 적재되면 그것 사용. 현재는 productName 휴리스틱
+function optionTypeOf(p) {
+  // 1순위: 시트의 option_name 컬럼 (적재 후)
+  if (p.option_name || p.optionName) {
+    const opt = (p.option_name || p.optionName).toString();
+    if (/3\s*\+\s*1|3\+1/.test(opt)) return 'bundle';
+    if (/단품|single|1\s*개/i.test(opt)) return 'single';
+  }
+  // 2순위: productName 휴리스틱 (옛 데이터)
+  const n = p.productName || '';
+  if (/3\s*\+\s*1|3\+1/.test(n)) return 'bundle';
+  return 'single';
 }
 
-// 옵션별 보기 토글에 따라 적절한 키
+// 옵션 필터 통과 여부
+function passesOptionFilter(p) {
+  if (currentOption === 'all') return true;
+  return optionTypeOf(p) === currentOption;
+}
+
+// 매트릭스/드롭다운 그룹 키 — 항상 displayName (옵션은 별도 필터)
 function keyOf(p) {
-  return currentByOption ? dispWithOption(p) : dispOf(p);
+  return dispOf(p);
 }
 
-// 제품 드롭다운 — 토글 상태에 따라 displayName 또는 displayName_옵션
+// 제품 드롭다운 — displayName 단위
 function populateProductSelect() {
   const sel = document.getElementById('productSelect');
   if (!sel) return;
   buildPidToDisp();
   const groups = {};
   (SHEET.products || []).forEach(p => {
+    if (!passesOptionFilter(p)) return;
     const key = keyOf(p);
     if (!groups[key]) groups[key] = 0;
     groups[key] += p.amount || 0;
   });
   const sorted = Object.entries(groups).sort((a, b) => b[1] - a[1]);
-  const placeholder = currentByOption ? '전체 제품·옵션 (매출 합산)' : '전체 제품 (매출 합산)';
-  sel.innerHTML = `<option value="">${placeholder}</option>`
+  sel.innerHTML = `<option value="">전체 제품 (매출 합산)</option>`
     + sorted.map(([key]) => `<option value="${key}">${key}</option>`).join('');
 }
 
@@ -960,10 +977,9 @@ document.getElementById('productSelect').addEventListener('change', (e) => {
   currentProduct = e.target.value;
   rerenderAll();
 });
-document.getElementById('optionToggle').addEventListener('change', (e) => {
-  currentByOption = e.target.checked;
-  document.getElementById('optionToggleLabel').classList.toggle('on', e.target.checked);
-  currentProduct = '';  // 토글 변경 시 제품 선택 초기화 (키 형식 바뀌므로)
+document.getElementById('optionSelect').addEventListener('change', (e) => {
+  currentOption = e.target.value;
+  currentProduct = '';
   populateProductSelect();
   rerenderAll();
 });
