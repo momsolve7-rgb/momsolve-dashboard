@@ -246,8 +246,12 @@
           <span style="color: var(--text-faint); font-size: 13px;">~</span>
           <input type="date" class="filter-select" id="endDate" style="padding:7px 10px;">
         </div>
-        <div class="filter-group" style="margin-left: 8px;">
-          <button class="filter-select" id="quickRange" style="cursor:pointer;" type="button">최근 14일</button>
+        <div class="filter-group" style="margin-left: 8px; gap: 4px;">
+          <button class="filter-select quick-btn" data-range="today" type="button" style="cursor:pointer; padding: 7px 10px;">오늘</button>
+          <button class="filter-select quick-btn" data-range="7" type="button" style="cursor:pointer; padding: 7px 10px;">최근 7일</button>
+          <button class="filter-select quick-btn" data-range="14" type="button" style="cursor:pointer; padding: 7px 10px;">최근 14일</button>
+          <button class="filter-select quick-btn" data-range="month" type="button" style="cursor:pointer; padding: 7px 10px;">이번 달</button>
+          <button class="filter-select quick-btn" data-range="lastmonth" type="button" style="cursor:pointer; padding: 7px 10px;">지난 달</button>
         </div>
         <span class="filter-label" style="margin-left: 16px;">② 제품</span>
         <div class="filter-group">
@@ -769,9 +773,33 @@ document.getElementById('productSelect').addEventListener('change', (e) => {
   currentProduct = e.target.value;
   rerenderAll();
 });
-document.getElementById('quickRange').addEventListener('click', () => {
-  setDefaultRange();
+// 빠른 기간 버튼 — 모두 picker 의 날짜를 수정 + 재렌더
+function applyQuickRange(range) {
+  const fmt = (dt) => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+  const today = new Date();
+  let s, e;
+  if (range === 'today') {
+    s = e = fmt(today);
+  } else if (range === '7' || range === '14') {
+    const n = parseInt(range, 10);
+    const startDt = new Date(today);
+    startDt.setDate(startDt.getDate() - (n - 1));
+    s = fmt(startDt); e = fmt(today);
+  } else if (range === 'month') {
+    s = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+    e = fmt(today);
+  } else if (range === 'lastmonth') {
+    s = fmt(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+    e = fmt(new Date(today.getFullYear(), today.getMonth(), 0));
+  }
+  currentStart = s;
+  currentEnd = e;
+  document.getElementById('startDate').value = s;
+  document.getElementById('endDate').value = e;
   rerenderAll();
+}
+document.querySelectorAll('.quick-btn').forEach(btn => {
+  btn.addEventListener('click', () => applyQuickRange(btn.dataset.range));
 });
 
 // Chart 객체 생성된 후에 호출 (이 스크립트 끝에 있어서 OK)
