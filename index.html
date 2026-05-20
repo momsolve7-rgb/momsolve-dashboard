@@ -360,15 +360,32 @@
 // 채널 정의 (시트 키와 1:1) — amount 는 시트 로드 후 채워짐
 const channelKeys = ['cafe24','naver','coupang','kakao','mamitalk','ezwel','ezwel_voucher','babybilly'];
 const channels = [
-  { key: 'cafe24',        name: '카페24',          color: '#007aff', amount: 0 },
-  { key: 'naver',         name: '네이버',          color: '#34c759', amount: 0 },
-  { key: 'coupang',       name: '쿠팡',            color: '#ff9500', amount: 0 },
-  { key: 'kakao',         name: '카카오선물하기',  color: '#ff3b30', amount: 0 },
-  { key: 'mamitalk',      name: '마미톡',          color: '#af52de', amount: 0 },
-  { key: 'ezwel',         name: '이지웰',          color: '#ff2d92', amount: 0 },
-  { key: 'ezwel_voucher', name: '이지웰바우처',    color: '#5ac8fa', amount: 0 },
-  { key: 'babybilly',     name: '베이비빌리',      color: '#5856d6', amount: 0 },
+  { key: 'cafe24',        name: '카페24',          aliases: ['자사몰','카페24'],          color: '#007aff', amount: 0, selected: false },
+  { key: 'naver',         name: '네이버',          aliases: ['네이버'],                   color: '#34c759', amount: 0, selected: false },
+  { key: 'coupang',       name: '쿠팡',            aliases: ['쿠팡'],                     color: '#ff9500', amount: 0, selected: false },
+  { key: 'kakao',         name: '카카오선물하기',  aliases: ['카카오','카카오선물하기'],  color: '#ff3b30', amount: 0, selected: false },
+  { key: 'mamitalk',      name: '마미톡',          aliases: ['마미톡'],                   color: '#af52de', amount: 0, selected: false },
+  { key: 'ezwel',         name: '이지웰',          aliases: ['이지웰'],                   color: '#ff2d92', amount: 0, selected: false },
+  { key: 'ezwel_voucher', name: '이지웰바우처',    aliases: ['이지웰바우처'],             color: '#5ac8fa', amount: 0, selected: false },
+  { key: 'babybilly',     name: '베이비빌리',      aliases: ['베이비빌리'],               color: '#5856d6', amount: 0, selected: false },
 ];
+
+// products.channel 값 → channel.key 매핑
+function productChannelToKey(channelName) {
+  if (!channelName) return null;
+  for (const c of channels) {
+    if (c.aliases.includes(channelName)) return c.key;
+  }
+  return null;
+}
+
+// 활성 채널 key 배열 (0개 선택 = 전체, 1개 이상 = 그것만)
+function activeChannelKeys() {
+  const selected = channels.filter(c => c.selected).map(c => c.key);
+  return selected.length === 0 ? channels.map(c => c.key) : selected;
+}
+// 활성 채널 key Set
+function activeChannelKeySet() { return new Set(activeChannelKeys()); }
 
 // 시트 데이터 캐시 (loadRealData 가 채움)
 let SHEET = { daily: [], products: [] };
@@ -454,13 +471,16 @@ function makeChips(containerId, items, onToggle) {
   });
 }
 
-// 상단 글로벌 채널 칩 — 모든 차트 동시 토글
+// 상단 글로벌 채널 칩 — 그래프·도넛 visibility + KPI·매트릭스 재계산
 makeChips('globalChannelToggles', channels, (i, on) => {
+  channels[i].selected = on;
   trendChart.setDatasetVisibility(i, on);
   trendChart.update();
   const sMeta = salesChart.getDatasetMeta(0);
   if (sMeta.data[i]) sMeta.data[i].hidden = !on;
   salesChart.update();
+  // KPI·매트릭스도 재계산
+  rerenderAll();
 });
 
 makeChips('salesToggles', channels, (i, on) => {
@@ -512,12 +532,17 @@ function rerenderAll() {
   const last = all[all.length - 1];
   const prev = all.length > 1 ? all[all.length - 2] : null;
 
+  // 활성 채널 (0개 = 전체)
+  const activeKeys = activeChannelKeys();
+  const allChannels = channels.every(c => !c.selected); // true 면 전체
+  const calcDayTotal = (d) => activeKeys.reduce((sum, k) => sum + (d[k] || 0), 0);
+
   // === 헤더 날짜
   document.getElementById('headerDate').textContent = last.date;
 
-  // === KPI 4개
-  const todayTotal = last.total || 0;
-  const prevTotal = prev ? (prev.total || 0) : 0;
+  // === KPI 4개 (total 은 활성 채널 합산, count/aov 는 전체 채널 — 시트에 채널별 count 없음)
+  const todayTotal = calcDayTotal(last);
+  const prevTotal = prev ? calcDayTotal(prev) : 0;
   document.getElementById('kpiTodayValue').textContent = fmtWon(todayTotal);
   if (prev && prevTotal > 0) {
     const pct = (todayTotal - prevTotal) / prevTotal * 100;
@@ -534,7 +559,7 @@ function rerenderAll() {
     const dt = new Date(d.date);
     return dt.getFullYear() === lastDt.getFullYear() && dt.getMonth() === lastDt.getMonth();
   });
-  const monthSum = sameMonth.reduce((a, d) => a + (d.total || 0), 0);
+  const monthSum = sameMonth.reduce((a, d) => a + calcDayTotal(d), 0);
   document.getElementById('kpiMonthValue').textContent = fmtWon(monthSum);
   // 전월 동기 = 지난달 1일~같은 날짜
   const lastMonthSameRange = all.filter(d => {
@@ -544,7 +569,7 @@ function rerenderAll() {
       && dt.getMonth() === targetM.getMonth()
       && dt.getDate() <= lastDt.getDate();
   });
-  const lastMonthSum = lastMonthSameRange.reduce((a, d) => a + (d.total || 0), 0);
+  const lastMonthSum = lastMonthSameRange.reduce((a, d) => a + calcDayTotal(d), 0);
   if (lastMonthSum > 0) {
     const pct = (monthSum - lastMonthSum) / lastMonthSum * 100;
     const el = document.getElementById('kpiMonthDelta');
@@ -554,22 +579,22 @@ function rerenderAll() {
     document.getElementById('kpiMonthDelta').textContent = '전월 데이터 없음';
   }
 
-  // 오늘 주문 건수
+  // 오늘 주문 건수 (시트엔 채널별 count 없음 → 전체 채널만 정확. 부분선택 시 '*' 표시)
   const todayCount = last.count || 0;
   const prevCount = prev ? (prev.count || 0) : 0;
-  document.getElementById('kpiCountValue').textContent = todayCount.toLocaleString();
+  document.getElementById('kpiCountValue').textContent = todayCount.toLocaleString() + (allChannels ? '' : '*');
   if (prev) {
     const diff = todayCount - prevCount;
     const el = document.getElementById('kpiCountDelta');
-    el.textContent = '어제比 ' + fmtDelta(diff);
+    el.textContent = '어제比 ' + fmtDelta(diff) + (allChannels ? '' : ' *전체기준');
     el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiCountDelta').textContent = '-';
   }
 
-  // 평균 주문 단가
-  const todayAov = last.aov || (todayCount ? Math.round(todayTotal / todayCount) : 0);
-  const prevAov = prev ? (prev.aov || (prevCount ? Math.round((prev.total || 0) / prevCount) : 0)) : 0;
+  // 평균 주문 단가 (활성 채널 total / 전체 count — 정확하진 않으나 근사)
+  const todayAov = todayCount ? Math.round(todayTotal / todayCount) : 0;
+  const prevAov = prevCount ? Math.round(prevTotal / prevCount) : 0;
   document.getElementById('kpiAovValue').textContent = fmtWon(todayAov);
   if (prev && prevAov > 0) {
     const pct = (todayAov - prevAov) / prevAov * 100;
@@ -599,12 +624,14 @@ function rerenderAll() {
   salesChart.data.datasets[0].data = channels.map(c => c.amount);
   salesChart.update();
 
-  // === 채널 순위 막대
+  // === 채널 순위 막대 — 활성 채널만 표시
   const rankBox = document.getElementById('rankList');
   if (rankBox) {
     rankBox.innerHTML = '';
-    const maxAmt = Math.max(...channels.map(c => c.amount), 1);
-    const sortedCh = [...channels].filter(c => c.amount > 0).sort((a, b) => b.amount - a.amount);
+    const activeSet = activeChannelKeySet();
+    const visibleCh = channels.filter(c => activeSet.has(c.key) && c.amount > 0);
+    const maxAmt = Math.max(...visibleCh.map(c => c.amount), 1);
+    const sortedCh = [...visibleCh].sort((a, b) => b.amount - a.amount);
     sortedCh.forEach(c => {
       const w = (c.amount / maxAmt * 100).toFixed(1);
       rankBox.insertAdjacentHTML('beforeend', `
@@ -620,9 +647,14 @@ function rerenderAll() {
     }
   }
 
-  // === 제품 매트릭스 — 토글 상태에 따라 displayName 또는 displayName_옵션
+  // === 제품 매트릭스 — 토글 상태에 따라 displayName 또는 displayName_옵션 + 활성 채널만
   const periodDates = new Set(periodDaily.map(d => d.date));
-  const prodsInRange = (SHEET.products || []).filter(p => periodDates.has(p.date));
+  const activeChSet = activeChannelKeySet();
+  const prodsInRange = (SHEET.products || []).filter(p => {
+    if (!periodDates.has(p.date)) return false;
+    const chKey = productChannelToKey(p.channel);
+    return chKey ? activeChSet.has(chKey) : true; // 매핑 안 되는 채널은 통과 (안전)
+  });
 
   // key -> { total, daily: {date->amount} } 그룹핑
   const dispGroups = {};
