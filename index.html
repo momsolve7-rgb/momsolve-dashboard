@@ -234,7 +234,7 @@
       <div class="filter-top" style="margin-bottom: 12px;">
         <div class="breadcrumb">
           📈 <strong style="color: var(--text);">통합 매출 현황</strong>
-          <span class="sep">·</span> 2026-05-18 · 매일 05:00 자동 갱신
+          <span class="sep">·</span> <span id="headerDate">로딩 중...</span> · 매일 05:00 자동 갱신
         </div>
       </div>
 
@@ -242,28 +242,16 @@
       <div class="filter-row" style="margin-bottom: 10px;">
         <span class="filter-label">① 필터</span>
         <div class="filter-group">
-          <select class="filter-select">
-            <option>최근 14일</option>
-            <option>최근 7일</option>
-            <option>이번 달</option>
-            <option>지난 달</option>
-            <option>사용자 지정 (날짜 선택)</option>
+          <select class="filter-select" id="periodSelect">
+            <option value="14">최근 14일</option>
+            <option value="7">최근 7일</option>
+            <option value="month">이번 달</option>
+            <option value="lastmonth">지난 달</option>
           </select>
         </div>
         <div class="filter-group">
-          <select class="filter-select">
-            <option>전체 카테고리</option>
-            <option>맘솔브 베이직</option>
-            <option>영양제</option>
-            <option>유아용품</option>
-            <option>임산부용품</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <select class="filter-select">
-            <option>전체 상품</option>
-            <option>상위 8개</option>
-            <option>신상품만</option>
+          <select class="filter-select" id="productSelect">
+            <option value="">전체 제품군 (상위 8개 자동)</option>
           </select>
         </div>
       </div>
@@ -281,24 +269,24 @@
       <!-- KPI -->
       <div class="kpis">
         <div class="kpi">
-          <div class="l">오늘 총매출</div>
-          <div class="v">₩ 4,820,000</div>
-          <div class="d up">▲ 어제比 +12.4%</div>
+          <div class="l" id="kpiTodayLabel">오늘 총매출</div>
+          <div class="v" id="kpiTodayValue">—</div>
+          <div class="d" id="kpiTodayDelta">—</div>
         </div>
         <div class="kpi">
           <div class="l">이번 달 누적</div>
-          <div class="v">₩ 72,140,000</div>
-          <div class="d up">▲ 전월 동기 +8.1%</div>
+          <div class="v" id="kpiMonthValue">—</div>
+          <div class="d" id="kpiMonthDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l">오늘 주문 건수</div>
-          <div class="v">187</div>
-          <div class="d up">▲ +9</div>
+          <div class="l" id="kpiCountLabel">오늘 주문 건수</div>
+          <div class="v" id="kpiCountValue">—</div>
+          <div class="d" id="kpiCountDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l">평균 주문 단가</div>
-          <div class="v">₩ 25,775</div>
-          <div class="d down">▼ -1.2%</div>
+          <div class="l" id="kpiAovLabel">평균 주문 단가</div>
+          <div class="v" id="kpiAovValue">—</div>
+          <div class="d" id="kpiAovDelta">—</div>
         </div>
       </div>
 
@@ -344,19 +332,8 @@
         </div>
         <div style="overflow-x: auto;">
           <table class="matrix">
-            <thead>
-              <tr>
-                <th>날짜</th>
-                <th>맘솔브 베이직세트</th>
-                <th>임산부 영양제</th>
-                <th>수유쿠션 디럭스</th>
-                <th>아기띠 슬링</th>
-                <th>유아 모빌</th>
-                <th>임산부 마사지기</th>
-                <th>아기 욕조</th>
-                <th>임산부 베개</th>
-                <th>합계</th>
-              </tr>
+            <thead id="matrixHead">
+              <tr><th>날짜</th><th>로딩 중...</th></tr>
             </thead>
             <tbody id="matrixBody"></tbody>
           </table>
@@ -369,37 +346,32 @@
 </div>
 
 <script>
+// 채널 정의 (시트 키와 1:1) — amount 는 시트 로드 후 채워짐
+const channelKeys = ['cafe24','naver','coupang','kakao','mamitalk','ezwel','ezwel_voucher','babybilly'];
 const channels = [
-  { name: '카페24',          color: '#007aff', amount: 1980000 },
-  { name: '네이버',          color: '#34c759', amount:  920000 },
-  { name: '쿠팡',            color: '#ff9500', amount:  680000 },
-  { name: '카카오선물하기',  color: '#ff3b30', amount:  420000 },
-  { name: '마미톡',          color: '#af52de', amount:  390000 },
-  { name: '이지웰',          color: '#ff2d92', amount:  240000 },
-  { name: '이지웰바우처',    color: '#5ac8fa', amount:  130000 },
-  { name: '베이비빌리',      color: '#5856d6', amount:   60000 },
+  { key: 'cafe24',        name: '카페24',          color: '#007aff', amount: 0 },
+  { key: 'naver',         name: '네이버',          color: '#34c759', amount: 0 },
+  { key: 'coupang',       name: '쿠팡',            color: '#ff9500', amount: 0 },
+  { key: 'kakao',         name: '카카오선물하기',  color: '#ff3b30', amount: 0 },
+  { key: 'mamitalk',      name: '마미톡',          color: '#af52de', amount: 0 },
+  { key: 'ezwel',         name: '이지웰',          color: '#ff2d92', amount: 0 },
+  { key: 'ezwel_voucher', name: '이지웰바우처',    color: '#5ac8fa', amount: 0 },
+  { key: 'babybilly',     name: '베이비빌리',      color: '#5856d6', amount: 0 },
 ];
 
-const seedRand = (s) => { let x = s; return () => { x = (x*9301+49297)%233280; return x/233280; }; };
-
-const days = [];
-for (let i = 13; i >= 0; i--) {
-  const d = new Date(2026, 4, 18 - i);
-  days.push(`${d.getMonth()+1}/${d.getDate()}`);
-}
-const rng = seedRand(42);
-const trendData = channels.map(c => ({
-  ...c,
-  data: days.map(() => Math.round(c.amount * (0.7 + rng()*0.6)))
-}));
+// 시트 데이터 캐시 (loadRealData 가 채움)
+let SHEET = { daily: [], products: [] };
+// 현재 필터 상태
+let currentPeriod = 14;       // 14 / 7 / month / lastmonth
+let currentProduct = '';      // '' 면 Top 8 자동, 아니면 특정 제품명
 
 const trendChart = new Chart(document.getElementById('trendChart'), {
   type: 'line',
   data: {
-    labels: days,
-    datasets: trendData.map(c => ({
+    labels: [],
+    datasets: channels.map(c => ({
       label: c.name,
-      data: c.data,
+      data: [],
       borderColor: c.color,
       backgroundColor: c.color + '20',
       borderWidth: 2,
@@ -452,20 +424,7 @@ const salesChart = new Chart(document.getElementById('salesChart'), {
   }
 });
 
-// 채널별 매출 순위 (가로 막대 리스트)
-const rankBox = document.getElementById('rankList');
-const maxAmt = Math.max(...channels.map(c => c.amount));
-const sorted = [...channels].sort((a,b) => b.amount - a.amount);
-sorted.forEach(c => {
-  const w = (c.amount / maxAmt * 100).toFixed(1);
-  rankBox.insertAdjacentHTML('beforeend', `
-    <div class="rank-row">
-      <span style="font-weight:600;">${c.name}</span>
-      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
-      <span class="rank-amt">₩${(c.amount/1000).toFixed(0)}k</span>
-    </div>
-  `);
-});
+// 채널별 매출 순위는 loadRealData() 가 채움 (mock 제거)
 
 function makeChips(containerId, items, onToggle) {
   const box = document.getElementById(containerId);
@@ -497,27 +456,7 @@ makeChips('salesToggles', channels, (i, on) => {
   salesChart.update();
 });
 
-const products = ['맘솔브 베이직세트','임산부 영양제','수유쿠션 디럭스','아기띠 슬링','유아 모빌','임산부 마사지기','아기 욕조','임산부 베개'];
-const baseSales = [980000, 720000, 540000, 410000, 320000, 260000, 180000, 120000];
-const mxDays = days.slice(-7);
-const rng2 = seedRand(7);
-const matrix = document.getElementById('matrixBody');
-mxDays.forEach(d => {
-  let row = `<tr><td>${d}</td>`;
-  let rowSum = 0;
-  products.forEach((p, i) => {
-    const v = Math.round(baseSales[i] * (0.5 + rng2() * 0.9) / 7);
-    rowSum += v;
-    let heat = '';
-    if (v > 150000) heat = 'heat-4';
-    else if (v > 100000) heat = 'heat-3';
-    else if (v > 50000) heat = 'heat-2';
-    else if (v > 20000) heat = 'heat-1';
-    row += `<td class="${heat}">${v ? v.toLocaleString() : '-'}</td>`;
-  });
-  row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
-  matrix.insertAdjacentHTML('beforeend', row);
-});
+// 매트릭스는 loadRealData() 가 시트 데이터로 채움 (mock 제거)
 
 // 노션식 네비 클릭 시 active 토글
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -529,114 +468,257 @@ document.querySelectorAll('.nav-item').forEach(item => {
 
 // ============================================================
 // 실 데이터 로드 — Google Sheets Apps Script Web App
-// 페이지 로드 시 더미 데이터를 시트 실 데이터로 덮어쓰기
 // ============================================================
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyNGX5eYtim8l65HwHEPi5YeDqwuP98xY_22CbpkE5q0agEbrdlFHTYYxzV8OpzEYHb/exec';
 
-async function loadRealData() {
-  try {
-    const res = await fetch(WEBAPP_URL + '?action=getDashboardData');
-    const data = await res.json();
-    if (!data.ok || !data.daily || !data.daily.length) {
-      console.warn('실 데이터 없음 - 더미 유지');
-      return;
-    }
+const fmtWon = (n) => '₩ ' + Math.round(n).toLocaleString();
+const fmtPct = (n) => (n >= 0 ? '▲ ' : '▼ ') + Math.abs(n).toFixed(1) + '%';
+const fmtDelta = (n) => (n >= 0 ? '▲ +' : '▼ ') + Math.abs(n).toLocaleString();
 
-    // 채널 매핑: V5 channels 순서 ↔ 시트 키
-    const keys = ['cafe24','naver','coupang','kakao','mamitalk','ezwel','ezwel_voucher','babybilly'];
-    const daily14 = data.daily.slice(-14);
-    const last = daily14[daily14.length - 1];
-
-    // 1. channels.amount 갱신 (최신 행 = 어제 매출)
-    channels.forEach((c, i) => { c.amount = last[keys[i]] || 0; });
-
-    // 2. 일별 트렌드 라벨·데이터 교체
-    const newLabels = daily14.map(d => {
+// 기간에 따른 daily 행 필터
+function pickDailyByPeriod(period) {
+  const all = SHEET.daily;
+  if (!all.length) return [];
+  const lastDate = new Date(all[all.length - 1].date);
+  if (period === '7' || period === '14') {
+    const n = parseInt(period, 10);
+    return all.slice(-n);
+  }
+  if (period === 'month') {
+    const y = lastDate.getFullYear(), m = lastDate.getMonth();
+    return all.filter(d => {
       const dt = new Date(d.date);
-      return `${dt.getMonth()+1}/${dt.getDate()}`;
+      return dt.getFullYear() === y && dt.getMonth() === m;
     });
-    trendChart.data.labels = newLabels;
-    trendChart.data.datasets.forEach((ds, i) => {
-      ds.data = daily14.map(d => d[keys[i]] || 0);
+  }
+  if (period === 'lastmonth') {
+    const lastM = new Date(lastDate.getFullYear(), lastDate.getMonth() - 1, 1);
+    const y = lastM.getFullYear(), m = lastM.getMonth();
+    return all.filter(d => {
+      const dt = new Date(d.date);
+      return dt.getFullYear() === y && dt.getMonth() === m;
     });
-    trendChart.update();
+  }
+  return all.slice(-14);
+}
 
-    // 3. 도넛 갱신
-    salesChart.data.datasets[0].data = channels.map(c => c.amount);
-    salesChart.update();
+// KPI + 헤더 + 차트 전부 다시 그리기
+function rerenderAll() {
+  if (!SHEET.daily.length) return;
 
-    // 4. 채널별 순위 막대 다시 그리기
-    const rankBox = document.getElementById('rankList');
-    if (rankBox) {
-      rankBox.innerHTML = '';
-      const maxAmt2 = Math.max(...channels.map(c => c.amount), 1);
-      const sorted2 = [...channels].sort((a,b) => b.amount - a.amount);
-      sorted2.forEach(c => {
-        const w = (c.amount / maxAmt2 * 100).toFixed(1);
-        rankBox.insertAdjacentHTML('beforeend', `
-          <div class="rank-row">
-            <span style="font-weight:600;">${c.name}</span>
-            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
-            <span class="rank-amt">₩${(c.amount/1000).toFixed(0)}k</span>
-          </div>
-        `);
-      });
+  const all = SHEET.daily;
+  const last = all[all.length - 1];
+  const prev = all.length > 1 ? all[all.length - 2] : null;
+
+  // === 헤더 날짜
+  document.getElementById('headerDate').textContent = last.date;
+
+  // === KPI 4개
+  const todayTotal = last.total || 0;
+  const prevTotal = prev ? (prev.total || 0) : 0;
+  document.getElementById('kpiTodayValue').textContent = fmtWon(todayTotal);
+  if (prev && prevTotal > 0) {
+    const pct = (todayTotal - prevTotal) / prevTotal * 100;
+    const el = document.getElementById('kpiTodayDelta');
+    el.textContent = '어제比 ' + fmtPct(pct);
+    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
+  } else {
+    document.getElementById('kpiTodayDelta').textContent = '-';
+  }
+
+  // 이번 달 누적 (last.date 기준 같은 달)
+  const lastDt = new Date(last.date);
+  const sameMonth = all.filter(d => {
+    const dt = new Date(d.date);
+    return dt.getFullYear() === lastDt.getFullYear() && dt.getMonth() === lastDt.getMonth();
+  });
+  const monthSum = sameMonth.reduce((a, d) => a + (d.total || 0), 0);
+  document.getElementById('kpiMonthValue').textContent = fmtWon(monthSum);
+  // 전월 동기 = 지난달 1일~같은 날짜
+  const lastMonthSameRange = all.filter(d => {
+    const dt = new Date(d.date);
+    const targetM = new Date(lastDt.getFullYear(), lastDt.getMonth() - 1, 1);
+    return dt.getFullYear() === targetM.getFullYear()
+      && dt.getMonth() === targetM.getMonth()
+      && dt.getDate() <= lastDt.getDate();
+  });
+  const lastMonthSum = lastMonthSameRange.reduce((a, d) => a + (d.total || 0), 0);
+  if (lastMonthSum > 0) {
+    const pct = (monthSum - lastMonthSum) / lastMonthSum * 100;
+    const el = document.getElementById('kpiMonthDelta');
+    el.textContent = '전월 동기 ' + fmtPct(pct);
+    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
+  } else {
+    document.getElementById('kpiMonthDelta').textContent = '전월 데이터 없음';
+  }
+
+  // 오늘 주문 건수
+  const todayCount = last.count || 0;
+  const prevCount = prev ? (prev.count || 0) : 0;
+  document.getElementById('kpiCountValue').textContent = todayCount.toLocaleString();
+  if (prev) {
+    const diff = todayCount - prevCount;
+    const el = document.getElementById('kpiCountDelta');
+    el.textContent = '어제比 ' + fmtDelta(diff);
+    el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
+  } else {
+    document.getElementById('kpiCountDelta').textContent = '-';
+  }
+
+  // 평균 주문 단가
+  const todayAov = last.aov || (todayCount ? Math.round(todayTotal / todayCount) : 0);
+  const prevAov = prev ? (prev.aov || (prevCount ? Math.round((prev.total || 0) / prevCount) : 0)) : 0;
+  document.getElementById('kpiAovValue').textContent = fmtWon(todayAov);
+  if (prev && prevAov > 0) {
+    const pct = (todayAov - prevAov) / prevAov * 100;
+    const el = document.getElementById('kpiAovDelta');
+    el.textContent = '어제比 ' + fmtPct(pct);
+    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
+  } else {
+    document.getElementById('kpiAovDelta').textContent = '-';
+  }
+
+  // === 일별 트렌드 그래프 (기간 필터 반영)
+  const periodDaily = pickDailyByPeriod(currentPeriod);
+  const labels = periodDaily.map(d => {
+    const dt = new Date(d.date);
+    return `${dt.getMonth()+1}/${dt.getDate()}`;
+  });
+  trendChart.data.labels = labels;
+  trendChart.data.datasets.forEach((ds, i) => {
+    ds.data = periodDaily.map(d => d[channelKeys[i]] || 0);
+  });
+  trendChart.update();
+
+  // === 도넛 + 채널 amount (기간 합산 기준)
+  channels.forEach(c => {
+    c.amount = periodDaily.reduce((a, d) => a + (d[c.key] || 0), 0);
+  });
+  salesChart.data.datasets[0].data = channels.map(c => c.amount);
+  salesChart.update();
+
+  // === 채널 순위 막대
+  const rankBox = document.getElementById('rankList');
+  if (rankBox) {
+    rankBox.innerHTML = '';
+    const maxAmt = Math.max(...channels.map(c => c.amount), 1);
+    const sortedCh = [...channels].filter(c => c.amount > 0).sort((a, b) => b.amount - a.amount);
+    sortedCh.forEach(c => {
+      const w = (c.amount / maxAmt * 100).toFixed(1);
+      rankBox.insertAdjacentHTML('beforeend', `
+        <div class="rank-row">
+          <span style="font-weight:600;">${c.name}</span>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
+          <span class="rank-amt">₩${(c.amount/1000).toFixed(0)}k</span>
+        </div>
+      `);
+    });
+    if (sortedCh.length === 0) {
+      rankBox.innerHTML = '<div style="color:var(--text-faint); font-size:12px;">선택 기간 매출 없음</div>';
     }
+  }
 
-    // 5. 제품 매트릭스 — 최근 7일 × Top 8 상품 (전체 기간 매출 합산 기준)
-    const prods = data.products || [];
-    if (prods.length > 0) {
-      // Top 8 상품
-      const productTotals = {};
-      prods.forEach(p => {
-        const key = p.productName;
-        if (!productTotals[key]) productTotals[key] = 0;
-        productTotals[key] += p.amount;
-      });
-      const top8 = Object.entries(productTotals)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0,8)
-        .map(e => e[0]);
+  // === 제품 매트릭스 (기간 + 제품 필터 반영)
+  const periodDates = new Set(periodDaily.map(d => d.date));
+  let prods = (SHEET.products || []).filter(p => periodDates.has(p.date));
+  if (currentProduct) {
+    prods = prods.filter(p => p.productName === currentProduct);
+  }
 
-      // 매트릭스 헤더 교체
-      const matrixHead = document.querySelector('thead tr');
-      if (matrixHead) {
-        matrixHead.innerHTML = '<th>날짜</th>' + top8.map(p => `<th title="${p}">${p.slice(0,20)}</th>`).join('') + '<th>합계</th>';
-      }
+  // 컬럼: 선택 제품 있으면 그 제품만, 없으면 Top 8
+  let cols = [];
+  if (currentProduct) {
+    cols = [currentProduct];
+  } else {
+    const totals = {};
+    prods.forEach(p => { totals[p.productName] = (totals[p.productName] || 0) + (p.amount || 0); });
+    cols = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+  }
 
-      // 매트릭스 body — 최근 7일 × Top 8
-      const recent7 = daily14.slice(-7).map(d => d.date);
-      const matrix = document.getElementById('matrixBody');
-      if (matrix) {
-        matrix.innerHTML = '';
-        recent7.forEach(date => {
-          let row = `<tr><td>${date.slice(5)}</td>`;
-          let rowSum = 0;
-          top8.forEach(pname => {
-            const amount = prods
-              .filter(p => p.date === date && p.productName === pname)
-              .reduce((a, p) => a + p.amount, 0);
-            rowSum += amount;
-            let heat = '';
-            if (amount > 1500000) heat = 'heat-4';
-            else if (amount > 1000000) heat = 'heat-3';
-            else if (amount > 500000) heat = 'heat-2';
-            else if (amount > 100000) heat = 'heat-1';
-            row += `<td class="${heat}">${amount ? amount.toLocaleString() : '-'}</td>`;
-          });
-          row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
-          matrix.insertAdjacentHTML('beforeend', row);
+  // thead
+  const matrixHead = document.getElementById('matrixHead');
+  if (matrixHead) {
+    matrixHead.innerHTML = '<tr><th>날짜</th>'
+      + cols.map(c => `<th title="${c}">${c.length > 20 ? c.slice(0, 20) + '…' : c}</th>`).join('')
+      + '<th>합계</th></tr>';
+  }
+
+  // tbody — 기간의 모든 날짜
+  const matrixBody = document.getElementById('matrixBody');
+  if (matrixBody) {
+    matrixBody.innerHTML = '';
+    if (cols.length === 0) {
+      matrixBody.innerHTML = `<tr><td colspan="2" style="color:var(--text-faint); text-align:center; padding:24px;">선택 기간 제품 매출 없음</td></tr>`;
+    } else {
+      // 매트릭스 행: 최근 14일 이내면 전체, 이번/지난 달이면 그 달 전체
+      const matrixDates = periodDaily.map(d => d.date);
+      matrixDates.forEach(date => {
+        let row = `<tr><td>${date.slice(5)}</td>`;
+        let rowSum = 0;
+        cols.forEach(pname => {
+          const amt = prods
+            .filter(p => p.date === date && p.productName === pname)
+            .reduce((a, p) => a + (p.amount || 0), 0);
+          rowSum += amt;
+          let heat = '';
+          if (amt > 1500000) heat = 'heat-4';
+          else if (amt > 1000000) heat = 'heat-3';
+          else if (amt > 500000) heat = 'heat-2';
+          else if (amt > 100000) heat = 'heat-1';
+          row += `<td class="${heat}">${amt ? amt.toLocaleString() : '-'}</td>`;
         });
-      }
+        row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
+        matrixBody.insertAdjacentHTML('beforeend', row);
+      });
     }
-
-    console.log('✅ 실 데이터 로드 완료:', daily14.length, '일');
-  } catch (e) {
-    console.error('실 데이터 로드 실패:', e);
   }
 }
 
-// 페이지 로드 후 호출 (Chart.js 객체들 생성 직후)
+// 제품 드롭다운 옵션을 시트 데이터로 동적 채움 (전체 기간 매출 큰 순)
+function populateProductSelect() {
+  const sel = document.getElementById('productSelect');
+  if (!sel) return;
+  const totals = {};
+  (SHEET.products || []).forEach(p => {
+    totals[p.productName] = (totals[p.productName] || 0) + (p.amount || 0);
+  });
+  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  sel.innerHTML = '<option value="">전체 제품군 (상위 8개 자동)</option>'
+    + sorted.map(([name]) => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
+}
+
+async function loadRealData() {
+  try {
+    document.getElementById('headerDate').textContent = '시트 데이터 로딩 중...';
+    const res = await fetch(WEBAPP_URL + '?action=getDashboardData');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.daily)) {
+      document.getElementById('headerDate').textContent = '시트 응답 형식 오류';
+      console.warn('시트 응답:', data);
+      return;
+    }
+    SHEET.daily = data.daily;
+    SHEET.products = data.products || [];
+    populateProductSelect();
+    rerenderAll();
+    console.log('✅ 시트 로드 완료:', SHEET.daily.length, '일 /', SHEET.products.length, '제품행');
+  } catch (e) {
+    document.getElementById('headerDate').textContent = '시트 로딩 실패 — F12 콘솔 확인';
+    console.error('시트 로드 실패:', e);
+  }
+}
+
+// 필터 변경 시 재렌더
+document.getElementById('periodSelect').addEventListener('change', (e) => {
+  currentPeriod = e.target.value;
+  rerenderAll();
+});
+document.getElementById('productSelect').addEventListener('change', (e) => {
+  currentProduct = e.target.value;
+  rerenderAll();
+});
+
+// Chart 객체 생성된 후에 호출 (이 스크립트 끝에 있어서 OK)
 loadRealData();
 </script>
 
