@@ -311,7 +311,7 @@
     <!-- 컨텐츠 -->
     <div class="content">
 
-      <!-- KPI (선택 기간 기준) -->
+      <!-- KPI (선택 기간 기준) — 영종님 요청 순서: 총매출 → 주문 건수 → 이번달 누적 → 평균 주문 단가 -->
       <div class="kpis">
         <div class="kpi">
           <div class="l" id="kpiTodayLabel">선택 기간 총매출</div>
@@ -319,14 +319,14 @@
           <div class="d" id="kpiTodayDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l">이번 달 누적</div>
-          <div class="v" id="kpiMonthValue">—</div>
-          <div class="d" id="kpiMonthDelta">—</div>
-        </div>
-        <div class="kpi">
           <div class="l" id="kpiCountLabel">선택 기간 주문 건수</div>
           <div class="v" id="kpiCountValue">—</div>
           <div class="d" id="kpiCountDelta">—</div>
+        </div>
+        <div class="kpi">
+          <div class="l">이번 달 누적</div>
+          <div class="v" id="kpiMonthValue">—</div>
+          <div class="d" id="kpiMonthDelta">—</div>
         </div>
         <div class="kpi">
           <div class="l" id="kpiAovLabel">선택 기간 평균 주문 단가</div>
@@ -647,30 +647,28 @@ function rerenderAll() {
     document.getElementById('kpiMonthDelta').textContent = '전월 데이터 없음';
   }
 
-  // 오늘 주문 건수 (시트엔 채널별 count 없음 → 전체 채널만 정확. 부분선택 시 '*' 표시)
-  const todayCount = last.count || 0;
-  const prevCount = prev ? (prev.count || 0) : 0;
-  document.getElementById('kpiCountValue').textContent = todayCount.toLocaleString() + (allChannels ? '' : '*');
-  if (prev) {
-    const diff = todayCount - prevCount;
+  // === KPI #3 — 선택 기간 주문 건수
+  document.getElementById('kpiCountValue').textContent = periodCount.toLocaleString() + (allChannels ? '' : '*');
+  if (hasPrevPeriod && prevPeriodCount > 0) {
+    const diff = periodCount - prevPeriodCount;
     const el = document.getElementById('kpiCountDelta');
-    el.textContent = '그제比 ' + fmtDelta(diff) + (allChannels ? '' : ' *전체기준');
+    el.textContent = '직전 동기간比 ' + fmtDelta(diff) + (allChannels ? '' : ' *전체기준');
     el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
   } else {
-    document.getElementById('kpiCountDelta').textContent = '-';
+    document.getElementById('kpiCountDelta').textContent = '직전 데이터 없음';
   }
 
-  // 평균 주문 단가 (활성 채널 total / 전체 count — 정확하진 않으나 근사)
-  const todayAov = todayCount ? Math.round(todayTotal / todayCount) : 0;
-  const prevAov = prevCount ? Math.round(prevTotal / prevCount) : 0;
-  document.getElementById('kpiAovValue').textContent = fmtWon(todayAov);
-  if (prev && prevAov > 0) {
-    const pct = (todayAov - prevAov) / prevAov * 100;
+  // === KPI #4 — 선택 기간 평균 주문 단가
+  const periodAov = periodCount ? Math.round(periodTotal / periodCount) : 0;
+  const prevPeriodAov = prevPeriodCount ? Math.round(prevPeriodTotal / prevPeriodCount) : 0;
+  document.getElementById('kpiAovValue').textContent = fmtWon(periodAov);
+  if (hasPrevPeriod && prevPeriodAov > 0) {
+    const pct = (periodAov - prevPeriodAov) / prevPeriodAov * 100;
     const el = document.getElementById('kpiAovDelta');
-    el.textContent = '그제比 ' + fmtPct(pct);
+    el.textContent = '직전 동기간比 ' + fmtPct(pct);
     el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
   } else {
-    document.getElementById('kpiAovDelta').textContent = '-';
+    document.getElementById('kpiAovDelta').textContent = '직전 데이터 없음';
   }
 
   // === 일별 트렌드 그래프 (기간·옵션 필터 반영)
