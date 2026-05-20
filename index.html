@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>맘솔브 통합 대시보드 V5</title>
+<title>맘솔브 채널별 매출 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -211,16 +211,34 @@
   <aside class="sidebar">
     <div class="workspace">
       <div class="ws-icon">맘</div>
-      <div class="ws-name">맘솔브 워크스페이스</div>
+      <div class="ws-name">맘솔브 운영 대시보드</div>
       <span class="ws-caret">▼</span>
     </div>
 
     <div class="nav-section">
+      <div class="nav-section-title">대시보드</div>
       <div class="nav-item active">
         <span class="caret">▾</span>
         <span class="icon">📊</span>
-        <span class="label">대시보드</span>
-        <span class="plus">+</span>
+        <span class="label">채널별 매출</span>
+      </div>
+      <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
+        <span class="caret">▸</span>
+        <span class="icon">📦</span>
+        <span class="label">제품군별 매출</span>
+        <span style="font-size:10px; color:var(--text-faint); margin-left:auto;">예정</span>
+      </div>
+      <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
+        <span class="caret">▸</span>
+        <span class="icon">📢</span>
+        <span class="label">마케팅</span>
+        <span style="font-size:10px; color:var(--text-faint); margin-left:auto;">예정</span>
+      </div>
+      <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
+        <span class="caret">▸</span>
+        <span class="icon">🎁</span>
+        <span class="label">쿠폰·프로모션</span>
+        <span style="font-size:10px; color:var(--text-faint); margin-left:auto;">예정</span>
       </div>
     </div>
   </aside>
@@ -233,7 +251,7 @@
       <!-- 미니 breadcrumb (작게) -->
       <div class="filter-top" style="margin-bottom: 12px;">
         <div class="breadcrumb">
-          📈 <strong style="color: var(--text);">통합 매출 현황</strong>
+          📊 <strong style="color: var(--text);">채널별 매출 대시보드</strong>
           <span class="sep">·</span> <span id="headerDate">로딩 중...</span> · 매일 05:00 자동 갱신
         </div>
       </div>
@@ -252,20 +270,6 @@
           <button class="filter-select quick-btn" data-range="14" type="button" style="cursor:pointer; padding: 7px 10px;">최근 14일</button>
           <button class="filter-select quick-btn" data-range="month" type="button" style="cursor:pointer; padding: 7px 10px;">이번 달</button>
           <button class="filter-select quick-btn" data-range="lastmonth" type="button" style="cursor:pointer; padding: 7px 10px;">지난 달</button>
-        </div>
-        <span class="filter-label" style="margin-left: 16px;">② 제품</span>
-        <div class="filter-group">
-          <select class="filter-select" id="productSelect">
-            <option value="">전체 제품 (매출 합산)</option>
-          </select>
-        </div>
-        <span class="filter-label" style="margin-left: 8px;">옵션</span>
-        <div class="filter-group">
-          <select class="filter-select" id="optionSelect">
-            <option value="all">전체</option>
-            <option value="single">단품 구매</option>
-            <option value="bundle">다량 구매 (1+1·3+1·3+3 등)</option>
-          </select>
         </div>
       </div>
 
@@ -330,28 +334,10 @@
 
       </div>
 
-      <!-- 마케팅 유입채널은 [📢 마케팅] 페이지(좌측 네비)에서 별도 노출 -->
-      <div style="margin-top: 10px; padding: 10px 14px; background: var(--bg-soft); border-radius: 8px; font-size: 12px; color: var(--text-soft);">
-        💡 마케팅 유입채널 분석은 좌측 <strong>📢 마케팅</strong> 페이지에서 별도 노출됩니다.
+      <!-- 다른 분석 페이지 안내 -->
+      <div style="margin-top: 14px; padding: 14px 18px; background: var(--bg-soft); border-radius: 12px; font-size: 12.5px; color: var(--text-soft); display: flex; gap: 24px; align-items: center;">
+        <span>📦 <strong style="color:var(--text);">제품군별 매출</strong> · 📢 <strong style="color:var(--text);">마케팅 유입</strong> · 🎁 <strong style="color:var(--text);">쿠폰·프로모션</strong> 분석은 좌측 네비에서 곧 추가됩니다.</span>
       </div>
-
-      <!-- 제품별 일별 매트릭스 -->
-      <section class="card" style="margin-top: 14px;">
-        <div class="card-head">
-          <div>
-            <h3>제품별 일별 매출 매트릭스</h3>
-            <div class="sub">상위 8개 상품 · 최근 7일</div>
-          </div>
-        </div>
-        <div style="overflow-x: auto;">
-          <table class="matrix">
-            <thead id="matrixHead">
-              <tr><th>날짜</th><th>로딩 중...</th></tr>
-            </thead>
-            <tbody id="matrixBody"></tbody>
-          </table>
-        </div>
-      </section>
 
     </div>
 
@@ -672,77 +658,7 @@ function rerenderAll() {
     }
   }
 
-  // === 제품 매트릭스 — displayName 단위 + 활성 채널 + 옵션 필터
-  const periodDates = new Set(periodDaily.map(d => d.date));
-  const activeChSet = activeChannelKeySet();
-  const prodsInRange = (SHEET.products || []).filter(p => {
-    if (!periodDates.has(p.date)) return false;
-    if (!passesOptionFilter(p)) return false;
-    const chKey = productChannelToKey(p.channel);
-    return chKey ? activeChSet.has(chKey) : true;
-  });
-
-  // key -> { total, daily: {date->amount} } 그룹핑
-  const dispGroups = {};
-  prodsInRange.forEach(p => {
-    const key = keyOf(p);
-    if (!dispGroups[key]) dispGroups[key] = { total: 0, daily: {} };
-    dispGroups[key].total += p.amount || 0;
-    dispGroups[key].daily[p.date] = (dispGroups[key].daily[p.date] || 0) + (p.amount || 0);
-  });
-
-  // 컬럼: 특정 제품 선택됐으면 그것만, 아니면 매출 Top 8
-  let cols = [];
-  if (currentProduct && dispGroups[currentProduct]) {
-    const g = dispGroups[currentProduct];
-    cols = [{ repName: currentProduct, daily: g.daily }];
-  } else {
-    cols = Object.entries(dispGroups)
-      .sort((a, b) => b[1].total - a[1].total)
-      .slice(0, 8)
-      .map(([disp, g]) => ({ repName: disp, daily: g.daily }));
-  }
-
-  // thead
-  const matrixHead = document.getElementById('matrixHead');
-  if (matrixHead) {
-    matrixHead.innerHTML = '<tr><th>날짜</th>'
-      + cols.map(c => `<th title="${c.repName}">${c.repName}</th>`).join('')
-      + '<th>합계</th></tr>';
-  }
-
-  // tbody — 기간의 모든 날짜. 색상은 컬럼별 상대값 기준 (자기 컬럼 max 대비)
-  const matrixBody = document.getElementById('matrixBody');
-  if (matrixBody) {
-    matrixBody.innerHTML = '';
-    if (cols.length === 0) {
-      matrixBody.innerHTML = `<tr><td colspan="2" style="color:var(--text-faint); text-align:center; padding:24px;">선택 기간 제품 매출 없음</td></tr>`;
-    } else {
-      // 각 컬럼별 max 미리 계산 (heat 비율 산정용)
-      cols.forEach(c => {
-        c.maxAmt = Math.max(0, ...periodDaily.map(d => c.daily[d.date] || 0));
-      });
-      periodDaily.forEach(d => {
-        let row = `<tr><td>${d.date.slice(5)}</td>`;
-        let rowSum = 0;
-        cols.forEach(c => {
-          const amt = c.daily[d.date] || 0;
-          rowSum += amt;
-          let heat = '';
-          if (amt > 0 && c.maxAmt > 0) {
-            const ratio = amt / c.maxAmt;
-            if (ratio >= 0.8) heat = 'heat-4';
-            else if (ratio >= 0.6) heat = 'heat-3';
-            else if (ratio >= 0.35) heat = 'heat-2';
-            else if (ratio >= 0.15) heat = 'heat-1';
-          }
-          row += `<td class="${heat}">${amt ? amt.toLocaleString() : '-'}</td>`;
-        });
-        row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
-        matrixBody.insertAdjacentHTML('beforeend', row);
-      });
-    }
-  }
+  // === 제품 매트릭스는 별도 페이지로 분리됨 (현재 페이지는 채널 매출만)
 }
 
 // 맘솔브 라인업 매핑 — productName 에서 라인_제품군 추출
@@ -933,10 +849,9 @@ function writeCache(data) {
 function applyData(data, fromCache) {
   SHEET.daily = data.daily || [];
   SHEET.products = data.products || [];
-  populateProductSelect();
   setDefaultRange();
   rerenderAll();
-  console.log((fromCache ? '⚡ 캐시 ' : '✅ 시트 ') + '로드 완료:', SHEET.daily.length, '일 /', SHEET.products.length, '제품행');
+  console.log((fromCache ? '⚡ 캐시 ' : '✅ 시트 ') + '로드 완료:', SHEET.daily.length, '일');
 }
 
 async function fetchFromSheet() {
@@ -995,24 +910,7 @@ document.getElementById('endDate').addEventListener('change', (e) => {
   currentEnd = e.target.value;
   rerenderAll();
 });
-document.getElementById('productSelect').addEventListener('change', (e) => {
-  currentProduct = e.target.value;
-  rerenderAll();
-});
-document.getElementById('optionSelect').addEventListener('change', (e) => {
-  currentOption = e.target.value;
-  // currentProduct 유지 (영종님 선택 보존)
-  populateProductSelect();
-  // 드롭다운에 현재 선택 복원
-  const sel = document.getElementById('productSelect');
-  if (currentProduct && [...sel.options].some(o => o.value === currentProduct)) {
-    sel.value = currentProduct;
-  } else {
-    currentProduct = '';
-    sel.value = '';
-  }
-  rerenderAll();
-});
+// 제품·옵션 드롭다운은 다음 페이지(제품군별 매출)에서 사용 예정
 // 빠른 기간 버튼 — 모두 picker 의 날짜를 수정 + 재렌더 (어제 기준)
 function applyQuickRange(range) {
   const fmt = (dt) => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
