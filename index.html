@@ -266,8 +266,8 @@
         <div class="filter-group">
           <select class="filter-select" id="optionSelect">
             <option value="all">전체</option>
-            <option value="single">단품</option>
-            <option value="bundle">3+1개</option>
+            <option value="single">단품 구매</option>
+            <option value="bundle">다량 구매 (1+1·3+1·3+3 등)</option>
           </select>
         </div>
       </div>
@@ -529,6 +529,21 @@ function pickDailyByRange(start, end) {
   return SHEET.daily.filter(d => d.date >= start && d.date <= end);
 }
 
+// 옵션 필터 적용된 날짜별·채널별 매출 (products 시트 기반)
+// 'all' 일 때는 daily 시트 직접 사용 (빠름)
+function getValueForDayChannel(date, channelKey) {
+  if (currentOption === 'all') {
+    const row = SHEET.daily.find(d => d.date === date);
+    return row ? (row[channelKey] || 0) : 0;
+  }
+  return (SHEET.products || [])
+    .filter(p =>
+      p.date === date
+      && productChannelToKey(p.channel) === channelKey
+      && passesOptionFilter(p))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+}
+
 // KPI + 헤더 + 차트 전부 다시 그리기
 function rerenderAll() {
   if (!SHEET.daily.length) return;
@@ -540,7 +555,11 @@ function rerenderAll() {
   // 활성 채널 (0개 = 전체)
   const activeKeys = activeChannelKeys();
   const allChannels = channels.every(c => !c.selected); // true 면 전체
-  const calcDayTotal = (d) => activeKeys.reduce((sum, k) => sum + (d[k] || 0), 0);
+  const allOptions = currentOption === 'all';
+  // 활성 채널·옵션 합산 (옵션 'all' 이면 daily 직접, 아니면 products 합산)
+  const calcDayTotal = (d) => allOptions
+    ? activeKeys.reduce((sum, k) => sum + (d[k] || 0), 0)
+    : activeKeys.reduce((sum, k) => sum + getValueForDayChannel(d.date, k), 0);
 
   // === 헤더 날짜
   document.getElementById('headerDate').textContent = last.date;
@@ -610,7 +629,7 @@ function rerenderAll() {
     document.getElementById('kpiAovDelta').textContent = '-';
   }
 
-  // === 일별 트렌드 그래프 (기간 필터 반영)
+  // === 일별 트렌드 그래프 (기간·옵션 필터 반영)
   const periodDaily = pickDailyByRange(currentStart, currentEnd);
   const labels = periodDaily.map(d => {
     const dt = new Date(d.date);
@@ -618,13 +637,17 @@ function rerenderAll() {
   });
   trendChart.data.labels = labels;
   trendChart.data.datasets.forEach((ds, i) => {
-    ds.data = periodDaily.map(d => d[channelKeys[i]] || 0);
+    ds.data = periodDaily.map(d => allOptions
+      ? (d[channelKeys[i]] || 0)
+      : getValueForDayChannel(d.date, channelKeys[i]));
   });
   trendChart.update();
 
-  // === 도넛 + 채널 amount (기간 합산 기준)
+  // === 도넛 + 채널 amount (기간·옵션 합산 기준)
   channels.forEach(c => {
-    c.amount = periodDaily.reduce((a, d) => a + (d[c.key] || 0), 0);
+    c.amount = periodDaily.reduce((a, d) => a + (allOptions
+      ? (d[c.key] || 0)
+      : getValueForDayChannel(d.date, c.key)), 0);
   });
   salesChart.data.datasets[0].data = channels.map(c => c.amount);
   salesChart.update();
@@ -806,18 +829,19 @@ function extractOption(productName) {
   return '기본';
 }
 
-// 옵션 종류 추출: 'single' | 'bundle'
+// 옵션 종류 추출: 'single'(단품) | 'bundle'(다량: 1+1, 3+1, 3+3 등 모든 X+Y 묶음)
 // 시트의 option_name 컬럼이 적재되면 그것 사용. 현재는 productName 휴리스틱
 function optionTypeOf(p) {
   // 1순위: 시트의 option_name 컬럼 (적재 후)
   if (p.option_name || p.optionName) {
     const opt = (p.option_name || p.optionName).toString();
-    if (/3\s*\+\s*1|3\+1/.test(opt)) return 'bundle';
-    if (/단품|single|1\s*개/i.test(opt)) return 'single';
+    if (/\d+\s*\+\s*\d+/.test(opt)) return 'bundle';   // X+Y 모두 다량
+    if (/단품|single|^1\s*개$/i.test(opt)) return 'single';
+    return 'single'; // 기본 단품
   }
   // 2순위: productName 휴리스틱 (옛 데이터)
   const n = p.productName || '';
-  if (/3\s*\+\s*1|3\+1/.test(n)) return 'bundle';
+  if (/\d+\s*\+\s*\d+/.test(n)) return 'bundle';  // 1+1, 3+1, 3+3, 5+1 등
   return 'single';
 }
 
