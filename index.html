@@ -653,13 +653,17 @@ function rerenderAll() {
       + '<th>합계</th></tr>';
   }
 
-  // tbody — 기간의 모든 날짜
+  // tbody — 기간의 모든 날짜. 색상은 컬럼별 상대값 기준 (자기 컬럼 max 대비)
   const matrixBody = document.getElementById('matrixBody');
   if (matrixBody) {
     matrixBody.innerHTML = '';
     if (cols.length === 0) {
       matrixBody.innerHTML = `<tr><td colspan="2" style="color:var(--text-faint); text-align:center; padding:24px;">선택 기간 제품 매출 없음</td></tr>`;
     } else {
+      // 각 컬럼별 max 미리 계산 (heat 비율 산정용)
+      cols.forEach(c => {
+        c.maxAmt = Math.max(0, ...periodDaily.map(d => c.daily[d.date] || 0));
+      });
       periodDaily.forEach(d => {
         let row = `<tr><td>${d.date.slice(5)}</td>`;
         let rowSum = 0;
@@ -667,10 +671,13 @@ function rerenderAll() {
           const amt = c.daily[d.date] || 0;
           rowSum += amt;
           let heat = '';
-          if (amt > 1500000) heat = 'heat-4';
-          else if (amt > 1000000) heat = 'heat-3';
-          else if (amt > 500000) heat = 'heat-2';
-          else if (amt > 100000) heat = 'heat-1';
+          if (amt > 0 && c.maxAmt > 0) {
+            const ratio = amt / c.maxAmt;
+            if (ratio >= 0.8) heat = 'heat-4';
+            else if (ratio >= 0.6) heat = 'heat-3';
+            else if (ratio >= 0.35) heat = 'heat-2';
+            else if (ratio >= 0.15) heat = 'heat-1';
+          }
           row += `<td class="${heat}">${amt ? amt.toLocaleString() : '-'}</td>`;
         });
         row += `<td style="font-weight:700;">${rowSum.toLocaleString()}</td></tr>`;
