@@ -189,6 +189,7 @@
     background: var(--bg-soft); border-radius: 12px; padding: 18px 20px;
   }
   .kpi .l { font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
+  .kpi .l .avg { font-size: 11px; color: var(--text-faint); margin-left: 4px; }
   .kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
   .kpi .d { font-size: 12px; margin-top: 5px; font-weight: 500; }
   .d.up { color: var(--apple-green); }
@@ -314,12 +315,12 @@
       <!-- KPI (선택 기간 기준) — 영종님 요청 순서: 총매출 → 주문 건수 → 이번달 누적 → 평균 주문 단가 -->
       <div class="kpis">
         <div class="kpi">
-          <div class="l" id="kpiTodayLabel">총매출</div>
+          <div class="l"><span id="kpiTodayLabel">총매출</span> <span class="avg" id="kpiTodayAvg"></span></div>
           <div class="v" id="kpiTodayValue">—</div>
           <div class="d" id="kpiTodayDelta">—</div>
         </div>
         <div class="kpi">
-          <div class="l" id="kpiCountLabel">주문 건수</div>
+          <div class="l"><span id="kpiCountLabel">주문 건수</span> <span class="avg" id="kpiCountAvg"></span></div>
           <div class="v" id="kpiCountValue">—</div>
           <div class="d" id="kpiCountDelta">—</div>
         </div>
@@ -831,6 +832,9 @@ function rerenderAll() {
 
   // === KPI #1 — 선택 기간 총매출
   document.getElementById('kpiTodayValue').textContent = fmtWon(periodTotal);
+  const days = periodDailyForKpi.length;
+  const avgDaily = days > 0 ? Math.round(periodTotal / days) : 0;
+  document.getElementById('kpiTodayAvg').textContent = days > 0 ? `(일별 평균 ${fmtWon(avgDaily)})` : '';
   if (hasPrevPeriod && prevPeriodTotal > 0) {
     const pct = (periodTotal - prevPeriodTotal) / prevPeriodTotal * 100;
     const el = document.getElementById('kpiTodayDelta');
@@ -868,6 +872,8 @@ function rerenderAll() {
 
   // === KPI #3 — 선택 기간 주문 건수
   document.getElementById('kpiCountValue').textContent = periodCount.toLocaleString();
+  const avgCount = days > 0 ? Math.round(periodCount / days) : 0;
+  document.getElementById('kpiCountAvg').textContent = days > 0 ? `(일별 평균 ${avgCount.toLocaleString()}건)` : '';
   if (hasPrevPeriod && prevPeriodCount > 0) {
     const diff = periodCount - prevPeriodCount;
     const el = document.getElementById('kpiCountDelta');
