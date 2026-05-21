@@ -342,7 +342,7 @@
           <div class="card-head">
             <div>
               <h3>일별 매출 추이</h3>
-              <div class="sub">최근 14일 · 채널별 선 그래프</div>
+              <div class="sub" id="trendSub">최근 14일 · 채널별 선 그래프</div>
             </div>
           </div>
           <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
@@ -368,7 +368,7 @@
           <div class="card-head">
             <div>
               <h3>일별 주문 건수</h3>
-              <div class="sub">선택 기간 · 채널별 라인</div>
+              <div class="sub" id="orderCountSub">선택 기간 · 채널별 라인</div>
             </div>
           </div>
           <div class="chart-wrap"><canvas id="orderCountChart"></canvas></div>
@@ -392,7 +392,7 @@
         <div class="card-head">
           <div>
             <h3>이번 달 vs 지난 달 매출</h3>
-            <div class="sub">일자별 비교 · 활성 채널 합산 (지난 달 데이터는 적재 후 자동 표시)</div>
+            <div class="sub" id="monthCompareSub">일자별 비교 · 활성 채널 합산 (지난 달 데이터는 적재 후 자동 표시)</div>
           </div>
         </div>
         <div class="chart-wrap"><canvas id="monthCompareChart"></canvas></div>
@@ -438,6 +438,18 @@ function activeChannelKeys() {
 }
 // 활성 채널 key Set
 function activeChannelKeySet() { return new Set(activeChannelKeys()); }
+
+// 선차트 카드 sub 텍스트용
+function formatActiveChannelsText() {
+  const selected = channels.filter(c => c.selected);
+  if (selected.length === 0 || selected.length === channels.length) return '전체 채널';
+  return selected.map(c => c.name).join(', ');
+}
+function formatDateRangeText() {
+  if (!currentStart || !currentEnd) return '전체 기간';
+  const fmt = (s) => { const dt = new Date(s); return `${dt.getMonth()+1}/${dt.getDate()}`; };
+  return currentStart === currentEnd ? fmt(currentStart) : `${fmt(currentStart)} ~ ${fmt(currentEnd)}`;
+}
 
 // 시트 데이터 캐시 (loadRealData 가 채움)
 // channelCounts 는 v4 Apps Script 가 제공 (배포 전엔 빈 배열 → products.quantity 로 fallback)
@@ -993,6 +1005,16 @@ function rerenderAll() {
   monthCompareChart.data.datasets[0].data = thisMonthByDay;
   monthCompareChart.data.datasets[1].data = lastMonthByDay;
   monthCompareChart.update();
+
+  // === 선차트 카드 sub 텍스트 — 현재 적용된 날짜 범위 + 활성 채널 동적 갱신
+  const dateText = formatDateRangeText();
+  const chanText = formatActiveChannelsText();
+  const trendSub = document.getElementById('trendSub');
+  if (trendSub) trendSub.textContent = `${dateText} · ${chanText}`;
+  const orderCountSub = document.getElementById('orderCountSub');
+  if (orderCountSub) orderCountSub.textContent = `${dateText} · ${chanText}`;
+  const monthCompareSub = document.getElementById('monthCompareSub');
+  if (monthCompareSub) monthCompareSub.textContent = `일자별 비교 · ${chanText} 합산`;
 
   // === 제품 매트릭스는 별도 페이지로 분리됨 (현재 페이지는 채널 매출만)
 }
