@@ -334,10 +334,15 @@
       </div>
 
       <section class="card">
-        <div class="card-head">
+        <div class="card-head" style="justify-content: space-between; align-items: center;">
           <div>
             <h3>제품별 매출 표</h3>
             <div class="sub" id="productTableSub">선택 기간 · 활성 채널 합산 (행=날짜, 열=상품 Top, 셀=매출)</div>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button id="pagePrev" class="quick-btn" type="button">← 이전</button>
+            <span id="pageLabel" style="font-size:12.5px; color:var(--text-soft); padding: 0 8px; min-width: 90px; text-align:center;">1 / 2 · 일반</span>
+            <button id="pageNext" class="quick-btn" type="button">다음 →</button>
           </div>
         </div>
         <div id="productTableWrap" style="overflow-x:auto; margin-top: 12px;">
@@ -473,6 +478,16 @@ makeChips('globalChannelToggles', channels, (i, on) => {
 // 옵션 그룹 필터 (둘 다 체크 시 합산)
 let optionSingleOn = true;
 let optionTripleOn = true;
+// 페이지: 1=일반 제품, 2=세트(임신주차)
+let currentPage = 1;
+const isSetProduct = (name) => /_세트$/.test(name) || /주차_세트/.test(name);
+
+document.addEventListener('DOMContentLoaded', () => {
+  const prev = document.getElementById('pagePrev');
+  const next = document.getElementById('pageNext');
+  if (prev) prev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; rerenderAll(); } });
+  if (next) next.addEventListener('click', () => { if (currentPage < 2) { currentPage++; rerenderAll(); } });
+});
 
 // 옵션 그룹 분류: 'triple' (3+X 묶음) / 'single' (1개·1+1·기타)
 function optionGroupOf(p) {
@@ -573,8 +588,20 @@ function rerenderAll() {
     const group = optionGroupOf(p);
     if (group === 'single' && !optionSingleOn) return false;
     if (group === 'triple' && !optionTripleOn) return false;
+    // 페이지 필터: 1=일반, 2=세트(임신주차)
+    const setRow = isSetProduct(dispOf(p));
+    if (currentPage === 1 && setRow) return false;
+    if (currentPage === 2 && !setRow) return false;
     return true;
   });
+
+  // 페이지 라벨 갱신
+  const pageLabel = document.getElementById('pageLabel');
+  if (pageLabel) pageLabel.textContent = `${currentPage} / 2 · ${currentPage === 1 ? '일반' : '세트'}`;
+  const prevBtn = document.getElementById('pagePrev');
+  const nextBtn = document.getElementById('pageNext');
+  if (prevBtn) prevBtn.disabled = (currentPage === 1);
+  if (nextBtn) nextBtn.disabled = (currentPage === 2);
 
   // ===== 표 1: 날짜 × 상품 Top 10 매트릭스 (히트맵 적용) =====
   const productTotals = {};
