@@ -426,7 +426,8 @@ function activeChannelKeys() {
 function activeChannelKeySet() { return new Set(activeChannelKeys()); }
 
 // 시트 데이터 캐시 (loadRealData 가 채움)
-let SHEET = { daily: [], products: [] };
+// channelCounts 는 v4 Apps Script 가 제공 (배포 전엔 빈 배열 → products.quantity 로 fallback)
+let SHEET = { daily: [], channelCounts: [], products: [] };
 // 현재 필터 상태 (날짜 picker 기반)
 let currentStart = '';  // ISO 'YYYY-MM-DD'
 let currentEnd = '';
@@ -678,8 +679,14 @@ function getValueForDayChannel(date, channelKey) {
     .reduce((sum, p) => sum + (p.amount || 0), 0);
 }
 
-// 날짜·채널·옵션·제품 필터 통과한 주문 건수 (products 시트의 quantity 합)
+// 날짜·채널·옵션·제품 필터 통과한 주문 건수
+// 옵션 필터 없을 땐 v4 의 channelCounts 시트 사용 (진짜 주문건수)
+// 옵션 필터 있을 땐 products.quantity 합산 (옵션별 분해 가능, item count 근사치)
 function getCountForDayChannel(date, channelKey) {
+  if (currentOption === 'all' && SHEET.channelCounts && SHEET.channelCounts.length) {
+    const row = SHEET.channelCounts.find(c => c.date === date);
+    if (row) return Number(row[channelKey]) || 0;
+  }
   return (SHEET.products || [])
     .filter(p =>
       p.date === date
@@ -1070,10 +1077,12 @@ function writeCache(data) {
 
 function applyData(data, fromCache) {
   SHEET.daily = data.daily || [];
+  SHEET.channelCounts = data.channelCounts || [];  // v4 배포 전엔 빈 배열
   SHEET.products = data.products || [];
   setDefaultRange();
   rerenderAll();
-  console.log((fromCache ? '⚡ 캐시 ' : '✅ 시트 ') + '로드 완료:', SHEET.daily.length, '일');
+  console.log((fromCache ? '⚡ 캐시 ' : '✅ 시트 ') + '로드 완료:', SHEET.daily.length, '일',
+    SHEET.channelCounts.length ? `(채널별 주문건수 ${SHEET.channelCounts.length}일)` : '(주문건수는 quantity 근사)');
 }
 
 async function fetchFromSheet() {
