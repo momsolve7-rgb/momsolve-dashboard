@@ -559,7 +559,14 @@ function rerenderAll() {
   const dateSet = new Set(periodDaily.map(d => d.date));
 
   // products 필터: 기간 내 + 활성 채널 + 옵션 그룹
-  const filtered = (SHEET.products || []).filter(p => {
+  // ⚠️ 임시 가드 — 쿠팡 sync 버그로 quantity 위치에 가격이 박힌 row 가 있음
+  // amount === 0 이고 quantity 가 매출 단위(>= 100) 이면 실제 매출로 간주
+  const filtered = (SHEET.products || []).map(p => {
+    if ((!p.amount || p.amount === 0) && p.quantity >= 100) {
+      return { ...p, amount: p.quantity, quantity: 1 };
+    }
+    return p;
+  }).filter(p => {
     if (!dateSet.has(p.date)) return false;
     const chKey = productChannelToKey(p.channel);
     if (!activeKeySet.has(chKey)) return false;
