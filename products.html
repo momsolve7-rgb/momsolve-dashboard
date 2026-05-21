@@ -569,7 +569,7 @@ function rerenderAll() {
     return true;
   });
 
-  // ===== 표 1: 날짜 × 상품 Top 10 매트릭스 =====
+  // ===== 표 1: 날짜 × 상품 Top 10 매트릭스 (히트맵 적용) =====
   const productTotals = {};
   const cellMap = {};
   filtered.forEach(p => {
@@ -582,6 +582,17 @@ function rerenderAll() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([name, total]) => ({ name, total }));
+
+  // 히트맵 색상 계산: 셀 매출 / 최대 셀 매출 → 초록 알파
+  // 낮은 값은 거의 안 보이게(어둡게), 높은 값은 진한 초록(밝게). sqrt 로 변별력 강화
+  let maxCellAmt = 0;
+  Object.values(cellMap).forEach(row => Object.values(row).forEach(v => { if (v > maxCellAmt) maxCellAmt = v; }));
+  const cellColor = (amt) => {
+    if (amt <= 0 || maxCellAmt <= 0) return '';
+    const ratio = Math.sqrt(amt / maxCellAmt);  // 0~1
+    const alpha = 0.06 + ratio * 0.55;          // 0.06(어두움) ~ 0.61(진한 초록)
+    return `background: rgba(52,199,89,${alpha.toFixed(2)});`;
+  };
 
   const wrap = document.getElementById('productTableWrap');
   if (topProducts.length === 0) {
@@ -598,7 +609,8 @@ function rerenderAll() {
       topProducts.forEach(p => {
         const amt = (cellMap[d] && cellMap[d][p.name]) || 0;
         rowTotal += amt;
-        html += `<td>${amt > 0 ? fmtWon(amt) : '—'}</td>`;
+        const style = cellColor(amt);
+        html += `<td style="${style}">${amt > 0 ? fmtWon(amt) : '—'}</td>`;
       });
       html += `<td class="total-col">${rowTotal > 0 ? fmtWon(rowTotal) : '—'}</td></tr>`;
     });
