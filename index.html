@@ -448,6 +448,26 @@ let currentEnd = '';
 let currentProduct = '';
 let currentOption = 'all';   // 'all' | 'single' | 'bundle'
 
+// 한글 단위 포맷: 1억원 / 1,250만원 / 8,500원 (차트 콜백에서 미리 참조 — 차트 정의 위에 둠)
+const fmtWon = (n) => {
+  n = Math.round(Number(n) || 0);
+  if (n === 0) return '0원';
+  const neg = n < 0;
+  n = Math.abs(n);
+  let out;
+  if (n >= 100000000) {
+    const eok = n / 100000000;
+    out = (Math.round(eok * 10) / 10).toString().replace(/\.0$/, '') + '억원';
+  } else if (n >= 10000) {
+    out = Math.round(n / 10000).toLocaleString() + '만원';
+  } else {
+    out = n.toLocaleString() + '원';
+  }
+  return neg ? '-' + out : out;
+};
+const fmtPct = (n) => (n >= 0 ? '▲ ' : '▼ ') + Math.abs(n).toFixed(1) + '%';
+const fmtDelta = (n) => (n >= 0 ? '▲ +' : '▼ ') + Math.abs(n).toLocaleString();
+
 // 라인 아래 그라데이션 페이드 (color 상단 → 투명 하단)
 function makeGradient(color) {
   return (ctx) => {
@@ -713,25 +733,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ============================================================
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyNGX5eYtim8l65HwHEPi5YeDqwuP98xY_22CbpkE5q0agEbrdlFHTYYxzV8OpzEYHb/exec';
 
-// 한글 단위 포맷: 1억원 / 1,250만원 / 8,500원
-const fmtWon = (n) => {
-  n = Math.round(Number(n) || 0);
-  if (n === 0) return '0원';
-  const neg = n < 0;
-  n = Math.abs(n);
-  let out;
-  if (n >= 100000000) {
-    const eok = n / 100000000;
-    out = (Math.round(eok * 10) / 10).toString().replace(/\.0$/, '') + '억원';
-  } else if (n >= 10000) {
-    out = Math.round(n / 10000).toLocaleString() + '만원';
-  } else {
-    out = n.toLocaleString() + '원';
-  }
-  return neg ? '-' + out : out;
-};
-const fmtPct = (n) => (n >= 0 ? '▲ ' : '▼ ') + Math.abs(n).toFixed(1) + '%';
-const fmtDelta = (n) => (n >= 0 ? '▲ +' : '▼ ') + Math.abs(n).toLocaleString();
+// fmtWon / fmtPct / fmtDelta 는 차트 정의 위로 옮김 (TDZ 회피)
 
 // 기간(start~end)에 따른 daily 행 필터
 function pickDailyByRange(start, end) {
