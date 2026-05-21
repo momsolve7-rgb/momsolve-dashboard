@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>맘솔브 채널별 매출 대시보드</title>
+<title>맘솔브 제품별 매출</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -256,13 +256,13 @@
 
     <div class="nav-section">
       <div class="nav-section-title">대시보드</div>
-      <a class="nav-item active" href="index.html" style="text-decoration:none; color:inherit;">
-        <span class="caret">▾</span>
+      <a class="nav-item" href="index.html" style="text-decoration:none; color:inherit;">
+        <span class="caret">▸</span>
         <span class="icon">📊</span>
         <span class="label">채널별 매출</span>
       </a>
-      <a class="nav-item" href="products.html" style="text-decoration:none; color:inherit;">
-        <span class="caret">▸</span>
+      <a class="nav-item active" href="products.html" style="text-decoration:none; color:inherit;">
+        <span class="caret">▾</span>
         <span class="icon">📦</span>
         <span class="label">제품별 매출</span>
       </a>
@@ -289,7 +289,7 @@
       <!-- 미니 breadcrumb (작게) -->
       <div class="filter-top" style="margin-bottom: 12px;">
         <div class="breadcrumb">
-          📊 <strong style="color: var(--text);">채널별 매출 대시보드</strong>
+          📦 <strong style="color: var(--text);">제품별 매출</strong>
           <span class="sep">·</span> <span id="headerDate">로딩 중...</span> · 매일 05:00 자동 갱신
         </div>
       </div>
@@ -321,97 +321,41 @@
     <!-- 컨텐츠 -->
     <div class="content">
 
-      <!-- KPI (선택 기간 기준) — 영종님 요청 순서: 총매출 → 주문 건수 → 이번달 누적 → 평균 주문 단가 -->
-      <div class="kpis">
-        <div class="kpi">
-          <div class="l"><span id="kpiTodayLabel">총매출</span> <span class="avg" id="kpiTodayAvg"></span></div>
-          <div class="v" id="kpiTodayValue">—</div>
-          <div class="d" id="kpiTodayDelta">—</div>
-        </div>
-        <div class="kpi">
-          <div class="l"><span id="kpiCountLabel">주문 건수</span> <span class="avg" id="kpiCountAvg"></span></div>
-          <div class="v" id="kpiCountValue">—</div>
-          <div class="d" id="kpiCountDelta">—</div>
-        </div>
-        <div class="kpi">
-          <div class="l">이번 달 누적</div>
-          <div class="v" id="kpiMonthValue">—</div>
-          <div class="d" id="kpiMonthDelta">—</div>
-        </div>
-        <div class="kpi">
-          <div class="l" id="kpiAovLabel">평균 주문 단가</div>
-          <div class="v" id="kpiAovValue">—</div>
-          <div class="d" id="kpiAovDelta">—</div>
-        </div>
+      <!-- 옵션 그룹 체크박스 (단품 / 3개 묶음) -->
+      <div style="background: var(--bg-soft); padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+        <span style="font-size: 12px; color: var(--text-soft); font-weight: 600;">옵션 유형</span>
+        <label style="cursor:pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="optSingle" checked> 단품 (1개·1+1)
+        </label>
+        <label style="cursor:pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="optTriple" checked> 3개 묶음 (3+1·3+3)
+        </label>
+        <span style="font-size: 11.5px; color: var(--text-faint); margin-left: 8px;">둘 다 체크 시 합산</span>
       </div>
 
-      <!-- 일별 선그래프 + 채널별 매출액 도넛 (옆으로 배치, 2:1) -->
-      <div class="row-trend">
-
-        <section class="card">
-          <div class="card-head">
-            <div>
-              <h3>일별 매출 추이</h3>
-              <div class="sub" id="trendSub">최근 14일 · 채널별 선 그래프</div>
-            </div>
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h3>제품별 매출 표</h3>
+            <div class="sub" id="productTableSub">선택 기간 · 활성 채널 합산 (행=날짜, 열=상품 Top, 셀=매출)</div>
           </div>
-          <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-        </section>
+        </div>
+        <div id="productTableWrap" style="overflow-x:auto; margin-top: 12px;">
+          <div style="color:var(--text-faint); font-size:13px;">로딩 중...</div>
+        </div>
+      </section>
 
-        <section class="card">
-          <div class="card-head">
-            <div>
-              <h3>채널별 매출액</h3>
-              <div class="sub">오늘 비중</div>
-            </div>
-          </div>
-          <div class="chart-wrap" style="height: 180px;"><canvas id="salesChart"></canvas></div>
-          <div id="rankList" style="display:flex; flex-direction:column; gap:6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft);"></div>
-        </section>
-
-      </div>
-
-      <!-- 일별 주문 건수 라인차트 + 채널별 주문 건수 도넛 (2:1, 매출 행과 동일 레이아웃) -->
-      <div class="row-trend" style="margin-top: 14px; margin-bottom: 0;">
-
-        <section class="card">
-          <div class="card-head">
-            <div>
-              <h3>일별 주문 건수</h3>
-              <div class="sub" id="orderCountSub">선택 기간 · 채널별 라인</div>
-            </div>
-          </div>
-          <div class="chart-wrap"><canvas id="orderCountChart"></canvas></div>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <div>
-              <h3>채널별 주문 건수</h3>
-              <div class="sub">선택 기간 비중</div>
-            </div>
-          </div>
-          <div class="chart-wrap" style="height: 180px;"><canvas id="countChart"></canvas></div>
-          <div id="countRankList" style="display:flex; flex-direction:column; gap:6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft);"></div>
-        </section>
-
-      </div>
-
-      <!-- 이번 달 vs 지난 달 매출 비교 -->
       <section class="card" style="margin-top: 14px;">
         <div class="card-head">
           <div>
-            <h3>이번 달 vs 지난 달 매출</h3>
-            <div class="sub" id="monthCompareSub">일자별 비교 · 활성 채널 합산 (지난 달 데이터는 적재 후 자동 표시)</div>
+            <h3>제품별 합계 (선택 기간 · 활성 채널)</h3>
+            <div class="sub">상품 합계 · 매출 큰 순</div>
           </div>
         </div>
-        <div class="chart-wrap"><canvas id="monthCompareChart"></canvas></div>
+        <div id="productSummaryWrap" style="overflow-x:auto; margin-top: 12px;">
+          <div style="color:var(--text-faint); font-size:13px;">로딩 중...</div>
+        </div>
       </section>
-
-      <!-- 다른 분석 페이지 안내 -->
-      <div style="margin-top: 14px; padding: 14px 18px; background: var(--bg-soft); border-radius: 12px; font-size: 12.5px; color: var(--text-soft); display: flex; gap: 24px; align-items: center;">
-        <span>📢 <strong style="color:var(--text);">마케팅 유입</strong> · 🎁 <strong style="color:var(--text);">쿠폰·프로모션</strong> 분석은 좌측 네비에서 곧 추가됩니다.</span>
-      </div>
 
     </div>
 
@@ -503,194 +447,7 @@ function makeGradient(color) {
   };
 }
 
-const trendChart = new Chart(document.getElementById('trendChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: channels.map(c => ({
-      label: c.name,
-      data: [],
-      borderColor: c.color,
-      backgroundColor: makeGradient(c.color),
-      borderWidth: 2,
-      tension: 0.35,
-      pointRadius: 3,
-      pointHoverRadius: 6,
-      pointBackgroundColor: c.color,
-      pointBorderColor: '#272729',
-      pointBorderWidth: 1.5,
-      fill: true,
-    }))
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${fmtWon(ctx.parsed.y)}` }
-      }
-    },
-    scales: {
-      x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
-      y: {
-        grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
-        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => fmtWon(v) }
-      }
-    }
-  }
-});
-
-const salesChart = new Chart(document.getElementById('salesChart'), {
-  type: 'doughnut',
-  data: {
-    labels: channels.map(c => c.name),
-    datasets: [{
-      data: channels.map(c => c.amount),
-      backgroundColor: channels.map(c => c.color),
-      borderColor: '#272729', borderWidth: 2,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false, cutout: '62%',
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.label}: ${fmtWon(ctx.parsed)}` }
-      }
-    }
-  }
-});
-
-// orderCountChart — 일별 주문 건수 (매출 선차트와 동일 구조: 채널별 라인, 기간·채널·제품·옵션 필터 연동)
-const orderCountChart = new Chart(document.getElementById('orderCountChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: channels.map(c => ({
-      label: c.name,
-      data: [],
-      borderColor: c.color,
-      backgroundColor: makeGradient(c.color),
-      borderWidth: 2,
-      tension: 0.35,
-      pointRadius: 3,
-      pointHoverRadius: 6,
-      pointBackgroundColor: c.color,
-      pointBorderColor: '#272729',
-      pointBorderWidth: 1.5,
-      fill: true,
-    }))
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()}건` }
-      }
-    },
-    scales: {
-      x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
-      y: {
-        grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
-        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => v.toLocaleString() + '건' },
-        beginAtZero: true,
-      }
-    }
-  }
-});
-
-// countChart — 채널별 주문 건수 도넛 (매출 도넛과 동일 구조)
-const countChart = new Chart(document.getElementById('countChart'), {
-  type: 'doughnut',
-  data: {
-    labels: channels.map(c => c.name),
-    datasets: [{
-      data: channels.map(c => c.count),
-      backgroundColor: channels.map(c => c.color),
-      borderColor: '#272729', borderWidth: 2,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false, cutout: '62%',
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.label}: ${ctx.parsed.toLocaleString()}건` }
-      }
-    }
-  }
-});
-
-// monthCompareChart — 이번 달 vs 지난 달 일자별 매출 (활성 채널·옵션 합산)
-const monthCompareChart = new Chart(document.getElementById('monthCompareChart'), {
-  type: 'line',
-  data: {
-    labels: Array.from({length: 31}, (_, i) => (i+1) + '일'),
-    datasets: [
-      {
-        label: '이번 달',
-        data: [],
-        borderColor: '#2997ff',
-        backgroundColor: makeGradient('#2997ff'),
-        borderWidth: 2,
-        tension: 0.35,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#2997ff',
-        pointBorderColor: '#272729',
-        pointBorderWidth: 1.5,
-        spanGaps: false,
-        fill: true,
-      },
-      {
-        label: '지난 달',
-        data: [],
-        borderColor: '#7a7a7a',
-        backgroundColor: makeGradient('#7a7a7a'),
-        borderWidth: 2,
-        borderDash: [6, 4],
-        tension: 0.35,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#7a7a7a',
-        pointBorderColor: '#272729',
-        pointBorderWidth: 1.5,
-        spanGaps: false,
-        fill: true,
-      }
-    ]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: {
-        display: true, position: 'top', align: 'end',
-        labels: { color: '#cccccc', font: { size: 12 }, boxWidth: 14, boxHeight: 2 }
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${ctx.parsed.y == null ? '데이터 없음' : fmtWon(ctx.parsed.y)}` }
-      }
-    },
-    scales: {
-      x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
-      y: {
-        grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
-        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => fmtWon(v) }
-      }
-    }
-  }
-});
-
-// 채널별 매출 순위는 loadRealData() 가 채움 (mock 제거)
+// (이 페이지는 차트 없음 — 표만)
 
 function makeChips(containerId, items, onToggle) {
   const box = document.getElementById(containerId);
@@ -707,38 +464,38 @@ function makeChips(containerId, items, onToggle) {
   });
 }
 
-// 상단 글로벌 채널 칩 — 그래프·도넛·주문건수 visibility + KPI·매트릭스 재계산
+// 상단 글로벌 채널 칩 — 표 재계산만
 makeChips('globalChannelToggles', channels, (i, on) => {
   channels[i].selected = on;
-  trendChart.setDatasetVisibility(i, on);
-  trendChart.update();
-  orderCountChart.setDatasetVisibility(i, on);
-  orderCountChart.update();
-  const sMeta = salesChart.getDatasetMeta(0);
-  if (sMeta.data[i]) sMeta.data[i].hidden = !on;
-  salesChart.update();
-  const cMeta = countChart.getDatasetMeta(0);
-  if (cMeta.data[i]) cMeta.data[i].hidden = !on;
-  countChart.update();
-  // KPI·매트릭스도 재계산
   rerenderAll();
 });
 
-// (salesToggles / countToggles 칩 제거 — 상단 글로벌 채널 토글로 일원화)
+// 옵션 그룹 필터 (둘 다 체크 시 합산)
+let optionSingleOn = true;
+let optionTripleOn = true;
 
-// 초기 상태: 모든 채널 hidden
-channels.forEach((c, i) => {
-  trendChart.setDatasetVisibility(i, false);
-  orderCountChart.setDatasetVisibility(i, false);
-  const sMeta = salesChart.getDatasetMeta(0);
-  if (sMeta.data[i]) sMeta.data[i].hidden = true;
-  const cMeta = countChart.getDatasetMeta(0);
-  if (cMeta.data[i]) cMeta.data[i].hidden = true;
+// 옵션 그룹 분류: 'triple' (3+X 묶음) / 'single' (1개·1+1·기타)
+function optionGroupOf(p) {
+  const opt = String(p.option_name || '').trim();
+  const n = String(p.productName || '').trim();
+  const candidate = opt || n;
+  const m = candidate.match(/(\d+)\s*\+\s*(\d+)/);
+  if (m && parseInt(m[1], 10) === 3) return 'triple';
+  return 'single';
+}
+
+document.getElementById('optSingle').addEventListener('change', (e) => {
+  optionSingleOn = e.target.checked;
+  rerenderAll();
 });
-trendChart.update();
-orderCountChart.update();
-salesChart.update();
-countChart.update();
+document.getElementById('optTriple').addEventListener('change', (e) => {
+  optionTripleOn = e.target.checked;
+  rerenderAll();
+});
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 // 매트릭스는 loadRealData() 가 시트 데이터로 채움 (mock 제거)
 
@@ -789,232 +546,113 @@ function getCountForDayChannel(date, channelKey) {
     .reduce((sum, p) => sum + (p.quantity || 0), 0);
 }
 
-// KPI + 헤더 + 차트 전부 다시 그리기
+// 제품별 매출 view — 표 두 개 (날짜×상품 매트릭스 + 합계)
 function rerenderAll() {
   if (!SHEET.daily.length) return;
 
-  const all = SHEET.daily;
-  const last = all[all.length - 1];
-  const prev = all.length > 1 ? all[all.length - 2] : null;
-
-  // 활성 채널 (0개 = 전체)
-  const activeKeys = activeChannelKeys();
-  const allChannels = channels.every(c => !c.selected); // true 면 전체
-  const allOptions = currentOption === 'all';
-  // 활성 채널·옵션 합산 (옵션 'all' 이면 daily 직접, 아니면 products 합산)
-  const calcDayTotal = (d) => allOptions
-    ? activeKeys.reduce((sum, k) => sum + (d[k] || 0), 0)
-    : activeKeys.reduce((sum, k) => sum + getValueForDayChannel(d.date, k), 0);
-
-  // === 헤더 날짜
+  const last = SHEET.daily[SHEET.daily.length - 1];
   document.getElementById('headerDate').textContent = last.date;
 
-  // === 선택 기간 데이터 (KPI 합산용)
-  const periodDailyForKpi = pickDailyByRange(currentStart, currentEnd);
-  // 채널 필터 반영된 주문 건수 합산 (calcDayTotal 과 동일 패턴)
-  const calcDayCount = (d) => activeKeys.reduce((s, k) => s + getCountForDayChannel(d.date, k), 0);
-  const periodTotal = periodDailyForKpi.reduce((a, d) => a + calcDayTotal(d), 0);
-  const periodCount = periodDailyForKpi.reduce((a, d) => a + calcDayCount(d), 0);
-
-  // 직전 동기간 — 같은 일수 만큼 앞쪽
-  let prevPeriodTotal = 0, prevPeriodCount = 0, hasPrevPeriod = false;
-  if (periodDailyForKpi.length > 0) {
-    const days = periodDailyForKpi.length;
-    const firstDate = periodDailyForKpi[0].date;
-    const startIdx = SHEET.daily.findIndex(d => d.date === firstDate);
-    if (startIdx > 0) {
-      const prevStart = Math.max(0, startIdx - days);
-      const prevDaily = SHEET.daily.slice(prevStart, startIdx);
-      if (prevDaily.length > 0) {
-        prevPeriodTotal = prevDaily.reduce((a, d) => a + calcDayTotal(d), 0);
-        prevPeriodCount = prevDaily.reduce((a, d) => a + calcDayCount(d), 0);
-        hasPrevPeriod = true;
-      }
-    }
-  }
-
-  // === KPI #1 — 선택 기간 총매출
-  document.getElementById('kpiTodayValue').textContent = fmtWon(periodTotal);
-  const days = periodDailyForKpi.length;
-  const avgDaily = days > 0 ? Math.round(periodTotal / days) : 0;
-  document.getElementById('kpiTodayAvg').textContent = days > 0 ? `(일별 평균 ${fmtWon(avgDaily)})` : '';
-  if (hasPrevPeriod && prevPeriodTotal > 0) {
-    const pct = (periodTotal - prevPeriodTotal) / prevPeriodTotal * 100;
-    const el = document.getElementById('kpiTodayDelta');
-    el.textContent = '직전 동기간比 ' + fmtPct(pct);
-    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
-  } else {
-    document.getElementById('kpiTodayDelta').textContent = '직전 데이터 없음';
-  }
-
-  // 이번 달 누적 (last.date 기준 같은 달)
-  const lastDt = new Date(last.date);
-  const sameMonth = all.filter(d => {
-    const dt = new Date(d.date);
-    return dt.getFullYear() === lastDt.getFullYear() && dt.getMonth() === lastDt.getMonth();
-  });
-  const monthSum = sameMonth.reduce((a, d) => a + calcDayTotal(d), 0);
-  document.getElementById('kpiMonthValue').textContent = fmtWon(monthSum);
-  // 전월 동기 = 지난달 1일~같은 날짜
-  const lastMonthSameRange = all.filter(d => {
-    const dt = new Date(d.date);
-    const targetM = new Date(lastDt.getFullYear(), lastDt.getMonth() - 1, 1);
-    return dt.getFullYear() === targetM.getFullYear()
-      && dt.getMonth() === targetM.getMonth()
-      && dt.getDate() <= lastDt.getDate();
-  });
-  const lastMonthSum = lastMonthSameRange.reduce((a, d) => a + calcDayTotal(d), 0);
-  if (lastMonthSum > 0) {
-    const pct = (monthSum - lastMonthSum) / lastMonthSum * 100;
-    const el = document.getElementById('kpiMonthDelta');
-    el.textContent = '전월 동기 ' + fmtPct(pct);
-    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
-  } else {
-    document.getElementById('kpiMonthDelta').textContent = '전월 데이터 없음';
-  }
-
-  // === KPI #3 — 선택 기간 주문 건수
-  document.getElementById('kpiCountValue').textContent = periodCount.toLocaleString();
-  const avgCount = days > 0 ? Math.round(periodCount / days) : 0;
-  document.getElementById('kpiCountAvg').textContent = days > 0 ? `(일별 평균 ${avgCount.toLocaleString()}건)` : '';
-  if (hasPrevPeriod && prevPeriodCount > 0) {
-    const diff = periodCount - prevPeriodCount;
-    const el = document.getElementById('kpiCountDelta');
-    el.textContent = '직전 동기간比 ' + fmtDelta(diff);
-    el.className = 'd ' + (diff >= 0 ? 'up' : 'down');
-  } else {
-    document.getElementById('kpiCountDelta').textContent = '직전 데이터 없음';
-  }
-
-  // === KPI #4 — 선택 기간 평균 주문 단가
-  const periodAov = periodCount ? Math.round(periodTotal / periodCount) : 0;
-  const prevPeriodAov = prevPeriodCount ? Math.round(prevPeriodTotal / prevPeriodCount) : 0;
-  document.getElementById('kpiAovValue').textContent = fmtWon(periodAov);
-  if (hasPrevPeriod && prevPeriodAov > 0) {
-    const pct = (periodAov - prevPeriodAov) / prevPeriodAov * 100;
-    const el = document.getElementById('kpiAovDelta');
-    el.textContent = '직전 동기간比 ' + fmtPct(pct);
-    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
-  } else {
-    document.getElementById('kpiAovDelta').textContent = '직전 데이터 없음';
-  }
-
-  // === 일별 트렌드 그래프 (기간·옵션 필터 반영)
+  const activeKeys = activeChannelKeys();
+  const activeKeySet = new Set(activeKeys);
   const periodDaily = pickDailyByRange(currentStart, currentEnd);
-  const labels = periodDaily.map(d => {
-    const dt = new Date(d.date);
-    return `${dt.getMonth()+1}/${dt.getDate()}`;
-  });
-  trendChart.data.labels = labels;
-  trendChart.data.datasets.forEach((ds, i) => {
-    ds.data = periodDaily.map(d => allOptions
-      ? (d[channelKeys[i]] || 0)
-      : getValueForDayChannel(d.date, channelKeys[i]));
-  });
-  trendChart.update();
+  const dateSet = new Set(periodDaily.map(d => d.date));
 
-  // === 도넛 + 채널 amount (기간·옵션 합산 기준)
-  channels.forEach(c => {
-    c.amount = periodDaily.reduce((a, d) => a + (allOptions
-      ? (d[c.key] || 0)
-      : getValueForDayChannel(d.date, c.key)), 0);
+  // products 필터: 기간 내 + 활성 채널 + 옵션 그룹
+  const filtered = (SHEET.products || []).filter(p => {
+    if (!dateSet.has(p.date)) return false;
+    const chKey = productChannelToKey(p.channel);
+    if (!activeKeySet.has(chKey)) return false;
+    const group = optionGroupOf(p);
+    if (group === 'single' && !optionSingleOn) return false;
+    if (group === 'triple' && !optionTripleOn) return false;
+    return true;
   });
-  salesChart.data.datasets[0].data = channels.map(c => c.amount);
-  salesChart.update();
 
-  // === 채널 순위 막대 — 활성 채널만 표시
-  const rankBox = document.getElementById('rankList');
-  if (rankBox) {
-    rankBox.innerHTML = '';
-    const activeSet = activeChannelKeySet();
-    const visibleCh = channels.filter(c => activeSet.has(c.key) && c.amount > 0);
-    const maxAmt = Math.max(...visibleCh.map(c => c.amount), 1);
-    const sortedCh = [...visibleCh].sort((a, b) => b.amount - a.amount);
-    sortedCh.forEach(c => {
-      const w = (c.amount / maxAmt * 100).toFixed(1);
-      rankBox.insertAdjacentHTML('beforeend', `
-        <div class="rank-row">
-          <span style="font-weight:600;">${c.name}</span>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
-          <span class="rank-amt">${fmtWon(c.amount)}</span>
-        </div>
-      `);
+  // ===== 표 1: 날짜 × 상품 Top 10 매트릭스 =====
+  const productTotals = {};
+  const cellMap = {};
+  filtered.forEach(p => {
+    const name = dispOf(p);
+    productTotals[name] = (productTotals[name] || 0) + (p.amount || 0);
+    if (!cellMap[p.date]) cellMap[p.date] = {};
+    cellMap[p.date][name] = (cellMap[p.date][name] || 0) + (p.amount || 0);
+  });
+  const topProducts = Object.entries(productTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, total]) => ({ name, total }));
+
+  const wrap = document.getElementById('productTableWrap');
+  if (topProducts.length === 0) {
+    wrap.innerHTML = '<div style="color:var(--text-faint); font-size:13px; padding: 14px;">선택 기간·채널·옵션 조건에 매출 데이터 없음</div>';
+  } else {
+    let html = '<table class="ptable"><thead><tr><th>날짜</th>';
+    topProducts.forEach(p => html += `<th>${escapeHtml(p.name)}</th>`);
+    html += '<th class="total-col">합계</th></tr></thead><tbody>';
+
+    const sortedDates = [...dateSet].sort((a, b) => b.localeCompare(a));
+    sortedDates.forEach(d => {
+      html += `<tr><td>${d}</td>`;
+      let rowTotal = 0;
+      topProducts.forEach(p => {
+        const amt = (cellMap[d] && cellMap[d][p.name]) || 0;
+        rowTotal += amt;
+        html += `<td>${amt > 0 ? fmtWon(amt) : '—'}</td>`;
+      });
+      html += `<td class="total-col">${rowTotal > 0 ? fmtWon(rowTotal) : '—'}</td></tr>`;
     });
-    if (sortedCh.length === 0) {
-      rankBox.innerHTML = '<div style="color:var(--text-faint); font-size:12px;">선택 기간 매출 없음</div>';
-    }
+
+    html += '<tr class="total-row"><td>합계</td>';
+    let grandTotal = 0;
+    topProducts.forEach(p => {
+      html += `<td>${fmtWon(p.total)}</td>`;
+      grandTotal += p.total;
+    });
+    html += `<td class="total-col">${fmtWon(grandTotal)}</td></tr>`;
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
   }
 
-  // === 일별 주문 건수 (매출 선차트와 동일 구조 — 기간·채널·옵션 필터 자동 반영)
-  orderCountChart.data.labels = labels;
-  orderCountChart.data.datasets.forEach((ds, i) => {
-    ds.data = periodDaily.map(d => getCountForDayChannel(d.date, channelKeys[i]));
+  // ===== 표 2: 상품(displayName) + 채널 합계 =====
+  const summary = {};
+  filtered.forEach(p => {
+    const name = dispOf(p);
+    const key = `${name}__${p.channel}`;
+    if (!summary[key]) summary[key] = {
+      name,
+      channel: p.channel || '',
+      quantity: 0, amount: 0
+    };
+    summary[key].quantity += (p.quantity || 0);
+    summary[key].amount += (p.amount || 0);
   });
-  orderCountChart.update();
+  const sumRows = Object.values(summary).sort((a, b) => b.amount - a.amount);
 
-  // === 채널별 주문 건수 도넛 + 순위 (기간·옵션 합산)
-  channels.forEach(c => {
-    c.count = periodDaily.reduce((a, d) => a + getCountForDayChannel(d.date, c.key), 0);
-  });
-  countChart.data.datasets[0].data = channels.map(c => c.count);
-  countChart.update();
-
-  const countRankBox = document.getElementById('countRankList');
-  if (countRankBox) {
-    countRankBox.innerHTML = '';
-    const activeSet = activeChannelKeySet();
-    const visibleCh = channels.filter(c => activeSet.has(c.key) && c.count > 0);
-    const maxCnt = Math.max(...visibleCh.map(c => c.count), 1);
-    const sortedCh = [...visibleCh].sort((a, b) => b.count - a.count);
-    sortedCh.forEach(c => {
-      const w = (c.count / maxCnt * 100).toFixed(1);
-      countRankBox.insertAdjacentHTML('beforeend', `
-        <div class="rank-row">
-          <span style="font-weight:600;">${c.name}</span>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
-          <span class="rank-amt">${c.count.toLocaleString()}건</span>
-        </div>
-      `);
+  const wrap2 = document.getElementById('productSummaryWrap');
+  if (sumRows.length === 0) {
+    wrap2.innerHTML = '<div style="color:var(--text-faint); font-size:13px; padding: 14px;">선택 기간·채널·옵션 조건에 매출 데이터 없음</div>';
+  } else {
+    let html2 = '<table class="ptable"><thead><tr><th>상품명</th><th>채널</th><th>수량</th><th>매출</th></tr></thead><tbody>';
+    let totalQty = 0, totalAmt = 0;
+    sumRows.forEach(r => {
+      totalQty += r.quantity; totalAmt += r.amount;
+      html2 += `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.channel)}</td><td>${r.quantity.toLocaleString()}</td><td>${fmtWon(r.amount)}</td></tr>`;
     });
-    if (sortedCh.length === 0) {
-      countRankBox.innerHTML = '<div style="color:var(--text-faint); font-size:12px;">선택 기간 주문건수 없음</div>';
-    }
+    html2 += `<tr class="total-row"><td>합계</td><td></td><td>${totalQty.toLocaleString()}</td><td>${fmtWon(totalAmt)}</td></tr>`;
+    html2 += '</tbody></table>';
+    wrap2.innerHTML = html2;
   }
 
-  // === 이번 달 vs 지난 달 일자별 매출 (활성 채널·옵션 합산)
-  const cmpBase = new Date(last.date);
-  const thisY = cmpBase.getFullYear();
-  const thisM = cmpBase.getMonth();
-  const prevMonthDt = new Date(thisY, thisM - 1, 1);
-  const prevY = prevMonthDt.getFullYear();
-  const prevM = prevMonthDt.getMonth();
-
-  const thisMonthByDay = new Array(31).fill(null);
-  const lastMonthByDay = new Array(31).fill(null);
-  SHEET.daily.forEach(d => {
-    const dt = new Date(d.date);
-    const day = dt.getDate();
-    if (dt.getFullYear() === thisY && dt.getMonth() === thisM) {
-      thisMonthByDay[day - 1] = calcDayTotal(d);
-    } else if (dt.getFullYear() === prevY && dt.getMonth() === prevM) {
-      lastMonthByDay[day - 1] = calcDayTotal(d);
-    }
-  });
-  monthCompareChart.data.datasets[0].data = thisMonthByDay;
-  monthCompareChart.data.datasets[1].data = lastMonthByDay;
-  monthCompareChart.update();
-
-  // === 선차트 카드 sub 텍스트 — 현재 적용된 날짜 범위 + 활성 채널 동적 갱신
+  // sub 텍스트
   const dateText = formatDateRangeText();
   const chanText = formatActiveChannelsText();
-  const trendSub = document.getElementById('trendSub');
-  if (trendSub) trendSub.textContent = `${dateText} · ${chanText}`;
-  const orderCountSub = document.getElementById('orderCountSub');
-  if (orderCountSub) orderCountSub.textContent = `${dateText} · ${chanText}`;
-  const monthCompareSub = document.getElementById('monthCompareSub');
-  if (monthCompareSub) monthCompareSub.textContent = `일자별 비교 · ${chanText} 합산`;
-
-  // === 제품 매트릭스는 별도 페이지로 분리됨 (products.html)
+  const optText = (optionSingleOn && optionTripleOn) ? '단품+3개 합산'
+                : optionSingleOn ? '단품(1개·1+1)'
+                : optionTripleOn ? '3개 묶음(3+1·3+3)'
+                : '옵션 미선택';
+  const sub = document.getElementById('productTableSub');
+  if (sub) sub.textContent = `${dateText} · ${chanText} · ${optText} · 행=날짜, 열=상품 Top 10`;
 }
 
 // 맘솔브 라인업 매핑 — productName 에서 라인_제품군 추출
