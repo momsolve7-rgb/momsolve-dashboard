@@ -355,7 +355,6 @@
               <div class="sub">오늘 비중</div>
             </div>
           </div>
-          <div class="toggles" id="salesToggles" style="margin-bottom: 12px;"></div>
           <div class="chart-wrap" style="height: 180px;"><canvas id="salesChart"></canvas></div>
           <div id="rankList" style="display:flex; flex-direction:column; gap:6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft);"></div>
         </section>
@@ -382,7 +381,6 @@
               <div class="sub">선택 기간 비중</div>
             </div>
           </div>
-          <div class="toggles" id="countToggles" style="margin-bottom: 12px;"></div>
           <div class="chart-wrap" style="height: 180px;"><canvas id="countChart"></canvas></div>
           <div id="countRankList" style="display:flex; flex-direction:column; gap:6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft);"></div>
         </section>
@@ -489,14 +487,14 @@ const trendChart = new Chart(document.getElementById('trendChart'), {
       legend: { display: false },
       tooltip: {
         backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ₩${ctx.parsed.y.toLocaleString()}` }
+        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${fmtWon(ctx.parsed.y)}` }
       }
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
       y: {
         grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
-        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => '₩' + (v/1000) + 'k' }
+        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => fmtWon(v) }
       }
     }
   }
@@ -518,7 +516,7 @@ const salesChart = new Chart(document.getElementById('salesChart'), {
       legend: { display: false },
       tooltip: {
         backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.label}: ₩${ctx.parsed.toLocaleString()}` }
+        callbacks: { label: (ctx) => `  ${ctx.label}: ${fmtWon(ctx.parsed)}` }
       }
     }
   }
@@ -637,14 +635,14 @@ const monthCompareChart = new Chart(document.getElementById('monthCompareChart')
       },
       tooltip: {
         backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
-        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${ctx.parsed.y == null ? '데이터 없음' : '₩' + ctx.parsed.y.toLocaleString()}` }
+        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${ctx.parsed.y == null ? '데이터 없음' : fmtWon(ctx.parsed.y)}` }
       }
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
       y: {
         grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
-        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => '₩' + (v/1000) + 'k' }
+        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => fmtWon(v) }
       }
     }
   }
@@ -684,17 +682,7 @@ makeChips('globalChannelToggles', channels, (i, on) => {
   rerenderAll();
 });
 
-makeChips('salesToggles', channels, (i, on) => {
-  const meta = salesChart.getDatasetMeta(0);
-  meta.data[i].hidden = !on;
-  salesChart.update();
-});
-
-makeChips('countToggles', channels, (i, on) => {
-  const meta = countChart.getDatasetMeta(0);
-  meta.data[i].hidden = !on;
-  countChart.update();
-});
+// (salesToggles / countToggles 칩 제거 — 상단 글로벌 채널 토글로 일원화)
 
 // 초기 상태: 모든 채널 hidden
 channels.forEach((c, i) => {
@@ -725,7 +713,23 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ============================================================
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyNGX5eYtim8l65HwHEPi5YeDqwuP98xY_22CbpkE5q0agEbrdlFHTYYxzV8OpzEYHb/exec';
 
-const fmtWon = (n) => '₩ ' + Math.round(n).toLocaleString();
+// 한글 단위 포맷: 1억원 / 1,250만원 / 8,500원
+const fmtWon = (n) => {
+  n = Math.round(Number(n) || 0);
+  if (n === 0) return '0원';
+  const neg = n < 0;
+  n = Math.abs(n);
+  let out;
+  if (n >= 100000000) {
+    const eok = n / 100000000;
+    out = (Math.round(eok * 10) / 10).toString().replace(/\.0$/, '') + '억원';
+  } else if (n >= 10000) {
+    out = Math.round(n / 10000).toLocaleString() + '만원';
+  } else {
+    out = n.toLocaleString() + '원';
+  }
+  return neg ? '-' + out : out;
+};
 const fmtPct = (n) => (n >= 0 ? '▲ ' : '▼ ') + Math.abs(n).toFixed(1) + '%';
 const fmtDelta = (n) => (n >= 0 ? '▲ +' : '▼ ') + Math.abs(n).toLocaleString();
 
@@ -920,7 +924,7 @@ function rerenderAll() {
         <div class="rank-row">
           <span style="font-weight:600;">${c.name}</span>
           <div class="rank-bar-wrap"><div class="rank-bar" style="width:${w}%; background:${c.color};"></div></div>
-          <span class="rank-amt">₩${(c.amount/1000).toFixed(0)}k</span>
+          <span class="rank-amt">${fmtWon(c.amount)}</span>
         </div>
       `);
     });
