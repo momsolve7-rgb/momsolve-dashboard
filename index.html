@@ -211,6 +211,16 @@
   .row-trend { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
   @media (max-width: 1280px) { .row-trend { grid-template-columns: 1fr; } }
   .chart-wrap { height: 280px; position: relative; }
+  /* 제품별 매출 표 */
+  .ptable { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  .ptable th, .ptable td { padding: 7px 9px; border-bottom: 1px solid var(--line-soft); text-align: right; white-space: nowrap; }
+  .ptable th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; font-size: 11.5px; position: sticky; top: 0; z-index: 1; }
+  .ptable th:first-child, .ptable td:first-child { text-align: left; position: sticky; left: 0; background: var(--bg); z-index: 2; }
+  .ptable th:first-child { z-index: 3; background: var(--bg-soft); }
+  .ptable tr:hover td { background: var(--hover); }
+  .ptable tr.total-row td { font-weight: 700; background: var(--bg-soft); border-top: 2px solid var(--line); }
+  .ptable td.total-col { font-weight: 700; color: var(--text); background: var(--bg-soft); }
+  .ptable .ch-tag { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
   .rank-row {
     display: grid; grid-template-columns: 70px 1fr 80px;
     align-items: center; gap: 8px; font-size: 12px;
@@ -246,16 +256,15 @@
 
     <div class="nav-section">
       <div class="nav-section-title">대시보드</div>
-      <div class="nav-item active">
+      <div class="nav-item active" data-view="channel">
         <span class="caret">▾</span>
         <span class="icon">📊</span>
         <span class="label">채널별 매출</span>
       </div>
-      <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
+      <div class="nav-item" data-view="product">
         <span class="caret">▸</span>
         <span class="icon">📦</span>
         <span class="label">제품군별 매출</span>
-        <span style="font-size:10px; color:var(--text-faint); margin-left:auto;">예정</span>
       </div>
       <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
         <span class="caret">▸</span>
@@ -311,6 +320,9 @@
 
     <!-- 컨텐츠 -->
     <div class="content">
+
+      <!-- ============ VIEW: 채널별 매출 (디폴트) ============ -->
+      <div id="viewChannel">
 
       <!-- KPI (선택 기간 기준) — 영종님 요청 순서: 총매출 → 주문 건수 → 이번달 누적 → 평균 주문 단가 -->
       <div class="kpis">
@@ -401,8 +413,39 @@
 
       <!-- 다른 분석 페이지 안내 -->
       <div style="margin-top: 14px; padding: 14px 18px; background: var(--bg-soft); border-radius: 12px; font-size: 12.5px; color: var(--text-soft); display: flex; gap: 24px; align-items: center;">
-        <span>📦 <strong style="color:var(--text);">제품군별 매출</strong> · 📢 <strong style="color:var(--text);">마케팅 유입</strong> · 🎁 <strong style="color:var(--text);">쿠폰·프로모션</strong> 분석은 좌측 네비에서 곧 추가됩니다.</span>
+        <span>📢 <strong style="color:var(--text);">마케팅 유입</strong> · 🎁 <strong style="color:var(--text);">쿠폰·프로모션</strong> 분석은 좌측 네비에서 곧 추가됩니다.</span>
       </div>
+
+      </div><!-- /viewChannel -->
+
+      <!-- ============ VIEW: 제품군별 매출 ============ -->
+      <div id="viewProduct" style="display:none;">
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <h3>제품군별 매출 표</h3>
+              <div class="sub" id="productTableSub">선택 기간 · 활성 채널 합산 (행=날짜, 열=상품 Top, 셀=매출)</div>
+            </div>
+          </div>
+          <div id="productTableWrap" style="overflow-x:auto; margin-top: 12px;">
+            <div style="color:var(--text-faint); font-size:13px;">로딩 중...</div>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top: 14px;">
+          <div class="card-head">
+            <div>
+              <h3>제품별 합계 (선택 기간 · 활성 채널)</h3>
+              <div class="sub">상품 + 옵션 단위 합계 · 매출 큰 순</div>
+            </div>
+          </div>
+          <div id="productSummaryWrap" style="overflow-x:auto; margin-top: 12px;">
+            <div style="color:var(--text-faint); font-size:13px;">로딩 중...</div>
+          </div>
+        </section>
+
+      </div><!-- /viewProduct -->
 
     </div>
 
@@ -455,6 +498,8 @@ function formatDateRangeText() {
 // 시트 데이터 캐시 (loadRealData 가 채움)
 // channelCounts 는 v4 Apps Script 가 제공 (배포 전엔 빈 배열 → products.quantity 로 fallback)
 let SHEET = { daily: [], channelCounts: [], products: [] };
+// 현재 view ('channel' | 'product') — 좌측 네비 클릭으로 전환
+let currentView = 'channel';
 // 현재 필터 상태 (날짜 picker 기반)
 let currentStart = '';  // ISO 'YYYY-MM-DD'
 let currentEnd = '';
@@ -733,11 +778,20 @@ countChart.update();
 
 // 매트릭스는 loadRealData() 가 시트 데이터로 채움 (mock 제거)
 
-// 노션식 네비 클릭 시 active 토글
+// 좌측 네비 클릭 → view 토글 (channel ↔ product)
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', (e) => {
+    const view = item.dataset.view;
+    if (!view) return;  // 비활성 nav (data-view 없음) 무시
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
+    currentView = view;
+    document.getElementById('viewChannel').style.display = (view === 'channel') ? '' : 'none';
+    document.getElementById('viewProduct').style.display = (view === 'product') ? '' : 'none';
+    // breadcrumb 갱신
+    const bc = document.querySelector('.breadcrumb strong');
+    if (bc) bc.textContent = view === 'channel' ? '채널별 매출 대시보드' : '제품군별 매출 분석';
+    rerenderAll();
   });
 });
 
@@ -789,6 +843,12 @@ function getCountForDayChannel(date, channelKey) {
 // KPI + 헤더 + 차트 전부 다시 그리기
 function rerenderAll() {
   if (!SHEET.daily.length) return;
+
+  // view = product 일 땐 제품 표만 그림
+  if (currentView === 'product') {
+    renderProductView();
+    return;
+  }
 
   const all = SHEET.daily;
   const last = all[all.length - 1];
@@ -1012,6 +1072,110 @@ function rerenderAll() {
   if (monthCompareSub) monthCompareSub.textContent = `일자별 비교 · ${chanText} 합산`;
 
   // === 제품 매트릭스는 별도 페이지로 분리됨 (현재 페이지는 채널 매출만)
+}
+
+// ============================================================
+// 제품군별 매출 view — 표 두 개 (날짜×상품 매트릭스 + 합계)
+// ============================================================
+function renderProductView() {
+  const activeKeys = activeChannelKeys();
+  const activeKeySet = new Set(activeKeys);
+  const periodDaily = pickDailyByRange(currentStart, currentEnd);
+  const dateSet = new Set(periodDaily.map(d => d.date));
+
+  // products 필터: 기간 내 + 활성 채널
+  const filtered = (SHEET.products || []).filter(p => {
+    if (!dateSet.has(p.date)) return false;
+    const chKey = productChannelToKey(p.channel);
+    return activeKeySet.has(chKey);
+  });
+
+  // ===== 표 1: 날짜 × 상품 Top 10 매트릭스 =====
+  const productTotals = {};
+  const cellMap = {};
+  filtered.forEach(p => {
+    const name = p.productName || '(이름없음)';
+    productTotals[name] = (productTotals[name] || 0) + (p.amount || 0);
+    if (!cellMap[p.date]) cellMap[p.date] = {};
+    cellMap[p.date][name] = (cellMap[p.date][name] || 0) + (p.amount || 0);
+  });
+  const topProducts = Object.entries(productTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, total]) => ({ name, total }));
+
+  const wrap = document.getElementById('productTableWrap');
+  if (topProducts.length === 0) {
+    wrap.innerHTML = '<div style="color:var(--text-faint); font-size:13px; padding: 14px;">선택 기간·채널에 매출 데이터 없음</div>';
+  } else {
+    let html = '<table class="ptable"><thead><tr><th>날짜</th>';
+    topProducts.forEach(p => html += `<th>${escapeHtml(p.name)}</th>`);
+    html += '<th class="total-col">합계</th></tr></thead><tbody>';
+
+    // 날짜 최신→옛
+    const sortedDates = [...dateSet].sort((a, b) => b.localeCompare(a));
+    sortedDates.forEach(d => {
+      html += `<tr><td>${d}</td>`;
+      let rowTotal = 0;
+      topProducts.forEach(p => {
+        const amt = (cellMap[d] && cellMap[d][p.name]) || 0;
+        rowTotal += amt;
+        html += `<td>${amt > 0 ? fmtWon(amt) : '—'}</td>`;
+      });
+      html += `<td class="total-col">${rowTotal > 0 ? fmtWon(rowTotal) : '—'}</td></tr>`;
+    });
+
+    // 합계 행
+    html += '<tr class="total-row"><td>합계</td>';
+    let grandTotal = 0;
+    topProducts.forEach(p => {
+      html += `<td>${fmtWon(p.total)}</td>`;
+      grandTotal += p.total;
+    });
+    html += `<td class="total-col">${fmtWon(grandTotal)}</td></tr>`;
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  // ===== 표 2: 상품+옵션+채널 합계 =====
+  const summary = {};
+  filtered.forEach(p => {
+    const key = `${p.productName}__${p.option_name || ''}__${p.channel}`;
+    if (!summary[key]) summary[key] = {
+      name: p.productName || '(이름없음)',
+      option: p.option_name || '',
+      channel: p.channel || '',
+      quantity: 0, amount: 0
+    };
+    summary[key].quantity += (p.quantity || 0);
+    summary[key].amount += (p.amount || 0);
+  });
+  const sumRows = Object.values(summary).sort((a, b) => b.amount - a.amount);
+
+  const wrap2 = document.getElementById('productSummaryWrap');
+  if (sumRows.length === 0) {
+    wrap2.innerHTML = '<div style="color:var(--text-faint); font-size:13px; padding: 14px;">선택 기간·채널에 매출 데이터 없음</div>';
+  } else {
+    let html2 = '<table class="ptable"><thead><tr><th>상품명</th><th>옵션</th><th>채널</th><th>수량</th><th>매출</th></tr></thead><tbody>';
+    let totalQty = 0, totalAmt = 0;
+    sumRows.forEach(r => {
+      totalQty += r.quantity; totalAmt += r.amount;
+      html2 += `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.option) || '—'}</td><td>${escapeHtml(r.channel)}</td><td>${r.quantity.toLocaleString()}</td><td>${fmtWon(r.amount)}</td></tr>`;
+    });
+    html2 += `<tr class="total-row"><td>합계</td><td></td><td></td><td>${totalQty.toLocaleString()}</td><td>${fmtWon(totalAmt)}</td></tr>`;
+    html2 += '</tbody></table>';
+    wrap2.innerHTML = html2;
+  }
+
+  // sub 텍스트 갱신
+  const dateText = formatDateRangeText();
+  const chanText = formatActiveChannelsText();
+  const sub = document.getElementById('productTableSub');
+  if (sub) sub.textContent = `${dateText} · ${chanText} · 행=날짜, 열=상품 Top 10`;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // 맘솔브 라인업 매핑 — productName 에서 라인_제품군 추출
