@@ -807,8 +807,10 @@ function rerenderAll() {
 
   // === 선택 기간 데이터 (KPI 합산용)
   const periodDailyForKpi = pickDailyByRange(currentStart, currentEnd);
+  // 채널 필터 반영된 주문 건수 합산 (calcDayTotal 과 동일 패턴)
+  const calcDayCount = (d) => activeKeys.reduce((s, k) => s + getCountForDayChannel(d.date, k), 0);
   const periodTotal = periodDailyForKpi.reduce((a, d) => a + calcDayTotal(d), 0);
-  const periodCount = periodDailyForKpi.reduce((a, d) => a + (d.count || 0), 0);
+  const periodCount = periodDailyForKpi.reduce((a, d) => a + calcDayCount(d), 0);
 
   // 직전 동기간 — 같은 일수 만큼 앞쪽
   let prevPeriodTotal = 0, prevPeriodCount = 0, hasPrevPeriod = false;
@@ -821,7 +823,7 @@ function rerenderAll() {
       const prevDaily = SHEET.daily.slice(prevStart, startIdx);
       if (prevDaily.length > 0) {
         prevPeriodTotal = prevDaily.reduce((a, d) => a + calcDayTotal(d), 0);
-        prevPeriodCount = prevDaily.reduce((a, d) => a + (d.count || 0), 0);
+        prevPeriodCount = prevDaily.reduce((a, d) => a + calcDayCount(d), 0);
         hasPrevPeriod = true;
       }
     }
@@ -836,19 +838,6 @@ function rerenderAll() {
     el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
   } else {
     document.getElementById('kpiTodayDelta').textContent = '직전 데이터 없음';
-  }
-
-  // (옛 last/prev 비교 변수는 이번 달 누적/AOV 계산에서 사용)
-  const todayTotal = calcDayTotal(last);
-  const prevTotal = prev ? calcDayTotal(prev) : 0;
-  document.getElementById('kpiTodayValue').textContent = fmtWon(todayTotal);
-  if (prev && prevTotal > 0) {
-    const pct = (todayTotal - prevTotal) / prevTotal * 100;
-    const el = document.getElementById('kpiTodayDelta');
-    el.textContent = '그제比 ' + fmtPct(pct);
-    el.className = 'd ' + (pct >= 0 ? 'up' : 'down');
-  } else {
-    document.getElementById('kpiTodayDelta').textContent = '-';
   }
 
   // 이번 달 누적 (last.date 기준 같은 달)
