@@ -616,6 +616,15 @@ function rerenderAll() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([name, total]) => ({ name, total }));
+  // 라인(브랜드)별로 묶기: 상품명 '_' 앞부분이 라인. 라인 순서 = 라인 매출 큰 순, 라인 안에서는 제품 매출 큰 순
+  const lineKeyOf = (n) => (n.split('_')[0] || n);
+  const lineTotals = {};
+  topProducts.forEach(p => { const k = lineKeyOf(p.name); lineTotals[k] = (lineTotals[k] || 0) + p.total; });
+  topProducts.sort((a, b) => {
+    const la = lineKeyOf(a.name), lb = lineKeyOf(b.name);
+    if (la !== lb) return lineTotals[lb] - lineTotals[la];
+    return b.total - a.total;
+  });
 
   // 히트맵 색상 — 열(제품) 안에서의 상대값 기준
   // 같은 제품 안에서 높은 날 vs 낮은 날 변별. 매출 작은 제품도 자기 안에서 변화 보임
