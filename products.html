@@ -353,13 +353,12 @@
       <section class="card" style="margin-top: 14px;">
         <div class="card-head">
           <div>
-            <h3>제품별 합계 (선택 기간 · 활성 채널)</h3>
-            <div class="sub">상품 합계 · 매출 큰 순</div>
+            <h3>제품별 일별 매출 추이</h3>
+            <div class="sub" id="productTrendSub">선택 기간 · 활성 채널 · 체크한 제품만 선그래프로 표시</div>
           </div>
         </div>
-        <div id="productSummaryWrap" style="overflow-x:auto; margin-top: 12px;">
-          <div style="color:var(--text-faint); font-size:13px;">로딩 중...</div>
-        </div>
+        <div id="productCheckboxRow" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;"></div>
+        <div style="position:relative; height:340px; margin-top:14px;"><canvas id="productTrendChart"></canvas></div>
       </section>
 
     </div>
@@ -684,35 +683,62 @@ function rerenderAll() {
     wrap.innerHTML = html;
   }
 
-  // ===== 표 2: 상품(displayName) + 채널 합계 =====
-  const summary = {};
-  filtered.forEach(p => {
-    const name = dispOf(p);
-    const key = `${name}__${p.channel}`;
-    if (!summary[key]) summary[key] = {
-      name,
-      channel: p.channel || '',
-      quantity: 0, amount: 0
-    };
-    summary[key].quantity += (p.quantity || 0);
-    summary[key].amount += (p.amount || 0);
+  // ===== 제품별 일별 매출 추이 선그래프 (체크한 제품만) =====
+  // 제품 목록: 매트릭스와 동일 정렬 (라인 그룹 → 라인 매출 큰 순 → 라인 내 제품 매출 큰 순)
+  const allProductNames = Object.keys(productTotals);
+  const allLineTotals = {};
+  allProductNames.forEach(n => { const k = lineKeyOf(n); allLineTotals[k] = (allLineTotals[k] || 0) + productTotals[n]; });
+  allProductNames.sort((a, b) => {
+    const la = lineKeyOf(a), lb = lineKeyOf(b);
+    if (la !== lb) {
+      const ra = lineRank(la), rb = lineRank(lb);
+      if (ra !== rb) return ra - rb;
+      return allLineTotals[lb] - allLineTotals[la];
+    }
+    return productTotals[b] - productTotals[a];
   });
-  const sumRows = Object.values(summary).sort((a, b) => b.amount - a.amount);
 
-  const wrap2 = document.getElementById('productSummaryWrap');
-  if (sumRows.length === 0) {
-    wrap2.innerHTML = '<div style="color:var(--text-faint); font-size:13px; padding: 14px;">선택 기간·채널·옵션 조건에 매출 데이터 없음</div>';
-  } else {
-    let html2 = '<table class="ptable"><thead><tr><th>상품명</th><th>채널</th><th>수량</th><th>매출</th></tr></thead><tbody>';
-    let totalQty = 0, totalAmt = 0;
-    sumRows.forEach(r => {
-      totalQty += r.quantity; totalAmt += r.amount;
-      html2 += `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.channel)}</td><td>${r.quantity.toLocaleString()}</td><td>${fmtWon(r.amount)}</td></tr>`;
-    });
-    html2 += `<tr class="total-row"><td>합계</td><td></td><td>${totalQty.toLocaleString()}</td><td>${fmtWon(totalAmt)}</td></tr>`;
-    html2 += '</tbody></table>';
-    wrap2.innerHTML = html2;
+  // 최초 1회: 매출 상위 3개 제품 기본 체크
+  if (!productTrendInited) {
+    Object.entries(productTotals).sort((a, b) => b[1] - a[1]).slice(0, 3).forEach(([n]) => selectedProducts.add(n));
+    productTrendInited = true;
   }
+
+  // 체크박스 렌더 (제품명 색 = 선 색, 좌측 보더 = 선 색 → 범례 역할)
+  const cbRow = document.getElementById('productCheckboxRow');
+  if (allProductNames.length === 0) {
+    cbRow.innerHTML = '<div style="color:var(--text-faint); font-size:13px;">선택 기간·채널·옵션 조건에 제품 매출 없음</div>';
+  } else {
+    cbRow.innerHTML = allProductNames.map(n => {
+      const color = colorForProduct(n);
+      const checked = selectedProducts.has(n) ? 'checked' : '';
+      return `<label style="cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:4px 9px; background:var(--bg-soft); border-radius:7px; border-left:3px solid ${color};">`
+        + `<input type="checkbox" data-name="${escapeHtml(n)}" ${checked}>`
+        + `<span style="color:${color}; font-weight:600;">${escapeHtml(n)}</span>`
+        + `<span style="color:var(--text-faint); font-size:11px;">${fmtWon(productTotals[n])}</span></label>`;
+    }).join('');
+  }
+
+  // 차트 데이터: X = 기간 내 날짜 오름차순, 라인 = 체크된 제품의 일별 매출
+  const trendDates = [...dateSet].sort((a, b) => a.localeCompare(b));
+  productTrendChart.data.labels = trendDates.map(d => { const dt = new Date(d); return `${dt.getMonth()+1}/${dt.getDate()}`; });
+  productTrendChart.data.datasets = allProductNames.filter(n => selectedProducts.has(n)).map(n => {
+    const color = colorForProduct(n);
+    return {
+      label: n,
+      data: trendDates.map(d => (cellMap[d] && cellMap[d][n]) || 0),
+      borderColor: color,
+      backgroundColor: makeGradient(color),
+      borderWidth: 2, tension: 0.35,
+      pointRadius: 3, pointHoverRadius: 6,
+      pointBackgroundColor: color, pointBorderColor: '#272729', pointBorderWidth: 1.5,
+      fill: true,
+    };
+  });
+  productTrendChart.update();
+
+  const tsub = document.getElementById('productTrendSub');
+  if (tsub) tsub.textContent = `${formatDateRangeText()} · ${formatActiveChannelsText()} · 체크한 제품만`;
 
   // sub 텍스트
   const dateText = formatDateRangeText();
@@ -1006,6 +1032,48 @@ function applyQuickRange(range) {
 }
 document.querySelectorAll('.quick-btn').forEach(btn => {
   btn.addEventListener('click', () => applyQuickRange(btn.dataset.range));
+});
+
+// === 제품별 일별 추이 선그래프 (채널 페이지 trendChart 와 동일 스타일) ===
+let selectedProducts = new Set();
+let productTrendInited = false;
+const PRODUCT_PALETTE = ['#ffb6c1','#34c759','#ff9500','#ff3b30','#af52de','#007aff','#5ac8fa','#5856d6','#ffd60a','#30d158','#bf5af2','#64d2ff','#ff6482','#a2845e','#ac8e68','#ffd426'];
+const _productColorMap = {};
+let _productColorIdx = 0;
+function colorForProduct(name) {
+  if (!(name in _productColorMap)) { _productColorMap[name] = PRODUCT_PALETTE[_productColorIdx % PRODUCT_PALETTE.length]; _productColorIdx++; }
+  return _productColorMap[name];
+}
+const productTrendChart = new Chart(document.getElementById('productTrendChart'), {
+  type: 'line',
+  data: { labels: [], datasets: [] },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
+        callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${fmtWon(ctx.parsed.y)}` }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
+        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => fmtWon(v) }
+      }
+    }
+  }
+});
+// 체크박스 토글 → 선택 갱신 후 재렌더
+document.getElementById('productCheckboxRow').addEventListener('change', (e) => {
+  const cb = e.target;
+  if (cb && cb.matches && cb.matches('input[type=checkbox]')) {
+    const name = cb.dataset.name;
+    if (cb.checked) selectedProducts.add(name); else selectedProducts.delete(name);
+    rerenderAll();
+  }
 });
 
 // Chart 객체 생성된 후에 호출 (이 스크립트 끝에 있어서 OK)
