@@ -616,13 +616,20 @@ function rerenderAll() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([name, total]) => ({ name, total }));
-  // 라인(브랜드)별로 묶기: 상품명 '_' 앞부분이 라인. 라인 순서 = 라인 매출 큰 순, 라인 안에서는 제품 매출 큰 순
+  // 라인(브랜드)별로 묶기: 상품명 '_' 앞부분이 라인.
+  // 라인 순서 = 우선순위 라인(튼사렌→퓨어렌) 먼저, 나머지는 라인 매출 큰 순. 라인 안에서는 제품 매출 큰 순
   const lineKeyOf = (n) => (n.split('_')[0] || n);
+  const LINE_PRIORITY = ['튼사렌', '퓨어렌'];
+  const lineRank = (k) => { const i = LINE_PRIORITY.indexOf(k); return i === -1 ? LINE_PRIORITY.length : i; };
   const lineTotals = {};
   topProducts.forEach(p => { const k = lineKeyOf(p.name); lineTotals[k] = (lineTotals[k] || 0) + p.total; });
   topProducts.sort((a, b) => {
     const la = lineKeyOf(a.name), lb = lineKeyOf(b.name);
-    if (la !== lb) return lineTotals[lb] - lineTotals[la];
+    if (la !== lb) {
+      const ra = lineRank(la), rb = lineRank(lb);
+      if (ra !== rb) return ra - rb;
+      return lineTotals[lb] - lineTotals[la];
+    }
     return b.total - a.total;
   });
 
