@@ -644,7 +644,7 @@ function rerenderAll() {
     topProducts.forEach(p => html += `<th>${escapeHtml(p.name)}</th>`);
     html += '<th class="total-col">합계</th></tr></thead><tbody>';
 
-    const sortedDates = [...dateSet].sort((a, b) => b.localeCompare(a));
+    const sortedDates = [...dateSet].sort((a, b) => a.localeCompare(b));
     sortedDates.forEach(d => {
       html += `<tr><td>${d}</td>`;
       let rowTotal = 0;
