@@ -285,7 +285,12 @@
   <main class="main">
 
     <!-- 상단: 3단 구조 = ① 필터링 → ② 체크박스 → (그 밑 결과) -->
-    <div class="filter-bar">
+    <div class="filter-bar" style="position:relative;">
+      <!-- 우측 상단 메모 박스 (항상 표시) — 평소 대비 매출 급증/급감 제품 1개씩 -->
+      <div id="memoBox" style="position:absolute; top:0; right:0; width:44%; max-width:780px; background:var(--bg-soft); border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:13px 16px; box-sizing:border-box;">
+        <div style="font-size:12px; color:var(--text-soft); font-weight:700; margin-bottom:9px;">📌 메모 <span id="memoSub" style="color:var(--text-faint); font-weight:400; font-size:11px;"></span></div>
+        <div id="memoBody" style="font-size:13px; color:var(--text); line-height:1.85;">로딩 중...</div>
+      </div>
       <!-- 미니 breadcrumb (작게) -->
       <div class="filter-top" style="margin-bottom: 12px;">
         <div class="breadcrumb">
@@ -739,6 +744,53 @@ function rerenderAll() {
 
   const tsub = document.getElementById('productTrendSub');
   if (tsub) tsub.textContent = `${formatDateRangeText()} · ${formatActiveChannelsText()} · 체크한 제품만`;
+
+  // ===== 메모 박스: 평소 대비 매출 많이/적게 나온 제품 1개씩 =====
+  // 평소(baseline) = 전체 기간 제품별 일평균(전체 일수 기준). 선택기간 = 선택 기간 일평균. 비율로 비교.
+  {
+    const allDates = new Set();
+    const baseTotal = {};
+    (SHEET.products || []).forEach(raw => {
+      const p = ((!raw.amount || raw.amount === 0) && raw.quantity >= 100) ? { ...raw, amount: raw.quantity } : raw;
+      if (!activeKeySet.has(productChannelToKey(p.channel))) return;
+      const g = optionGroupOf(p);
+      if (g === 'single' && !optionSingleOn) return;
+      if (g === 'triple' && !optionTripleOn) return;
+      const setRow = isSetProduct(dispOf(p));
+      if (currentPage === 1 && setRow) return;
+      if (currentPage === 2 && !setRow) return;
+      allDates.add(p.date);
+      const name = dispOf(p);
+      baseTotal[name] = (baseTotal[name] || 0) + (p.amount || 0);
+    });
+    const baseDayCount = allDates.size || 1;
+    const periodDayCount = dateSet.size || 1;
+    // 후보: 평소 일평균 10만원 이상인 제품 (자잘한 제품의 과장된 비율 제외)
+    const scored = Object.keys(baseTotal)
+      .map(n => {
+        const baseAvg = baseTotal[n] / baseDayCount;
+        const periodAvg = (productTotals[n] || 0) / periodDayCount;
+        return { n, baseAvg, periodAvg, ratio: baseAvg > 0 ? periodAvg / baseAvg : 0 };
+      })
+      .filter(x => x.baseAvg >= 100000)
+      .sort((a, b) => a.ratio - b.ratio);
+    const down = scored.length ? scored[0] : null;                       // 가장 적게 (비율 최저)
+    const up = scored.length > 1 ? scored[scored.length - 1] : null;     // 가장 많이 (비율 최고)
+    const body = document.getElementById('memoBody');
+    if (body) {
+      const line = (icon, label, x, color) => {
+        if (!x) return `<div style="color:var(--text-faint);">${icon} ${label}: 데이터 부족</div>`;
+        const pct = Math.round((x.ratio - 1) * 100);
+        const sign = pct >= 0 ? '+' : '';
+        return `<div>${icon} <b>${label}</b>: <span style="color:${color}; font-weight:700;">${escapeHtml(shortName(x.n))}</span>`
+          + ` <span style="color:var(--text-soft); font-size:11.5px;">(평소 일 ${fmtWon(x.baseAvg)} → 이 기간 일 ${fmtWon(x.periodAvg)}, ${sign}${pct}%)</span></div>`;
+      };
+      body.innerHTML = line('📈', '평소보다 많이 나온 제품', up, '#34c759')
+        + line('📉', '평소보다 적게 나온 제품', down, '#ff6482');
+    }
+    const msub = document.getElementById('memoSub');
+    if (msub) msub.textContent = `${formatDateRangeText()} · 평소(전체기간) 대비`;
+  }
 
   // sub 텍스트
   const dateText = formatDateRangeText();
