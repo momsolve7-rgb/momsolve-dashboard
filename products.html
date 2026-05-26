@@ -1048,10 +1048,20 @@ async function loadRealData() {
 // 필터 변경 시 재렌더
 document.getElementById('startDate').addEventListener('change', (e) => {
   currentStart = e.target.value;
+  // 시작일을 종료일보다 늦게 고르면 종료일을 시작일에 맞춤 (역전 방지)
+  if (currentEnd && currentStart > currentEnd) {
+    currentEnd = currentStart;
+    document.getElementById('endDate').value = currentEnd;
+  }
   rerenderAll();
 });
 document.getElementById('endDate').addEventListener('change', (e) => {
   currentEnd = e.target.value;
+  // 종료일을 시작일보다 이르게 고르면 시작일을 종료일에 맞춤 (역전 방지)
+  if (currentStart && currentEnd < currentStart) {
+    currentStart = currentEnd;
+    document.getElementById('startDate').value = currentStart;
+  }
   rerenderAll();
 });
 // 제품·옵션 드롭다운은 다음 페이지(제품군별 매출)에서 사용 예정
