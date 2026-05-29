@@ -3,36 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <title>맘솔브 제품별 매출</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    /* Apple dark-mode tile palette (per provided design spec) */
-    --bg: #1d1d1f;                 /* ink — deepest canvas */
-    --bg-sidebar: #252527;         /* surface-tile-3 */
-    --bg-main: #1d1d1f;
-    --bg-soft: #2a2a2c;            /* surface-tile-2 — KPI / soft chips */
-    --bg-card: #272729;            /* surface-tile-1 — cards */
-    --text: #ffffff;               /* body-on-dark */
-    --text-soft: #cccccc;          /* body-muted */
-    --text-faint: #7a7a7a;         /* ink-muted-48 */
-    --line: rgba(255,255,255,0.10);
-    --line-soft: rgba(255,255,255,0.06);
-    --blue: #2997ff;               /* primary-on-dark (Sky Link Blue) */
-    --blue-soft: rgba(41,151,255,0.16);
-    --hover: rgba(255,255,255,0.06);
-    --selected: rgba(41,151,255,0.18);
-    --apple-blue: #2997ff;
+    /* ===== Design tokens — White + Deep Green/Teal SaaS ===== */
+    --primary: #008577;
+    --primary-hover: #007364;
+    --primary-soft: rgba(0,133,119,0.08);   /* tinted surface */
+    --primary-tint: rgba(0,133,119,0.14);   /* selected/active */
+
+    --bg: #ffffff;                 /* page canvas */
+    --bg-sidebar: #f3f8f7;         /* soft mint sidebar */
+    --bg-main: #ffffff;
+    --bg-soft: #f3f8f7;            /* KPI / soft surfaces */
+    --bg-muted: #e9eef0;           /* muted secondary bg */
+    --bg-card: #ffffff;            /* cards (border-defined) */
+
+    --text: #1f2933;               /* text-main */
+    --text-soft: #5f6b6d;          /* text-muted */
+    --text-faint: #8a969b;         /* faint */
+
+    --line: #dde5e7;               /* border */
+    --line-soft: #eaf0f1;          /* subtle divider */
+
+    --hover: #f3f8f7;              /* hover surface */
+    --selected: var(--primary-tint);
+
+    /* accent alias (legacy var name reused by charts/labels) */
+    --blue: #008577;
+    --blue-soft: var(--primary-soft);
+
+    /* categorical series accents (channel identity) */
     --apple-green: #34c759;
     --apple-orange: #ff9500;
     --apple-red: #ff3b30;
     --apple-purple: #af52de;
-    --apple-pink: #ff2d92;
     --apple-teal: #5ac8fa;
     --apple-indigo: #5856d6;
+
+    --radius: 10px;
+    --radius-sm: 8px;
   }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Apple SD Gothic Neo', '맑은 고딕', sans-serif;
+    font-family: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', '맑은 고딕', sans-serif;
     background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
@@ -54,8 +70,8 @@
   }
   .workspace:hover { background: var(--hover); }
   .ws-icon {
-    width: 22px; height: 22px; border-radius: 5px;
-    background: linear-gradient(135deg, #ff9a56, #ff6b9d);
+    width: 24px; height: 24px; border-radius: 7px;
+    background: var(--primary);
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 12px; font-weight: 700;
   }
@@ -76,7 +92,7 @@
     line-height: 1.3; user-select: none;
   }
   .nav-item:hover { background: var(--hover); }
-  .nav-item.active { background: var(--selected); font-weight: 600; }
+  .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
   .nav-item .caret {
     color: var(--text-faint); width: 14px; text-align: center;
     font-size: 10px; opacity: 0; transition: opacity 0.1s;
@@ -128,20 +144,20 @@
   /* 애플 스타일 체크박스 칩 (dark) */
   .chip {
     display: inline-flex; align-items: center; gap: 7px;
-    padding: 6px 12px; border-radius: 999px;
-    background: rgba(255,255,255,0.06); cursor: pointer; user-select: none;
+    padding: 7px 13px; border-radius: 999px;
+    background: var(--bg-soft); cursor: pointer; user-select: none;
     font-size: 12.5px; font-weight: 500;
     transition: all 0.15s;
-    border: 1px solid transparent;
-    color: var(--text);
+    border: 1px solid var(--line);
+    color: var(--text-soft);
   }
   .chip input { display: none; }
   .chip .swatch { width: 8px; height: 8px; border-radius: 50%; }
   .chip.on {
-    background: var(--bg-card); border-color: var(--line);
+    background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 600;
   }
-  .chip.off { opacity: 0.4; }
-  .chip.off .swatch { background: #555 !important; }
+  .chip.off { opacity: 1; }
+  .chip.off .swatch { background: #c7d0d2 !important; }
 
   .filter-select {
     padding: 7px 30px 7px 12px; border-radius: 8px;
@@ -149,55 +165,56 @@
     font-size: 13px; color: var(--text);
     font-family: inherit; cursor: pointer;
     -webkit-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23cccccc' d='M6 8L0 0h12z'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%235f6b6d' d='M6 8L0 0h12z'/></svg>");
     background-repeat: no-repeat; background-position: right 10px center;
   }
   /* 빠른 기간 버튼 — 셀렉트와 같은 톤이지만 화살표 X + 라운드 + 충분한 padding */
   button.quick-btn {
-    padding: 7px 14px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--bg-card);
+    padding: 8px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--line); background: var(--bg-soft);
     font-size: 12.5px; font-weight: 500; color: var(--text);
     font-family: inherit; cursor: pointer;
     background-image: none;
     line-height: 1.4;
     letter-spacing: 0;
     white-space: nowrap;
-    transition: background 0.12s, border-color 0.12s;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
   }
-  button.quick-btn:hover { background: var(--hover); border-color: rgba(255,255,255,0.18); }
-  button.quick-btn:active { background: var(--selected); }
+  button.quick-btn:hover { background: var(--bg-muted); border-color: var(--primary); color: var(--primary); }
+  button.quick-btn:active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
   /* 날짜 picker — native 화살표 사용, custom 화살표 제거, padding 충분히 */
   input[type="date"].filter-select {
-    padding: 7px 12px;
+    padding: 8px 12px;
     background-image: none;
     min-width: 142px;
     font-variant-numeric: tabular-nums;
-    color-scheme: dark;
+    color-scheme: light;
   }
   input[type="date"].filter-select::-webkit-calendar-picker-indicator {
-    filter: invert(0.6);
     cursor: pointer;
     margin-left: 4px;
+    opacity: 0.55;
   }
 
   /* 컨텐츠 영역 */
-  .content { padding: 24px 36px 60px; }
+  .content { padding: 28px 36px 64px; }
 
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
   .kpi {
-    background: var(--bg-soft); border-radius: 12px; padding: 18px 20px;
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 20px 22px;
   }
-  .kpi .l { font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
+  .kpi .l { font-size: 12px; color: var(--text-soft); margin-bottom: 8px; }
   .kpi .l .avg { font-size: 11px; color: var(--text-faint); margin-left: 4px; }
-  .kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
-  .kpi .d { font-size: 12px; margin-top: 5px; font-weight: 500; }
-  .d.up { color: var(--apple-green); }
+  .kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+  .kpi .d { font-size: 12px; margin-top: 6px; font-weight: 500; }
+  .d.up { color: var(--primary); }
   .d.down { color: var(--apple-red); }
 
   .card {
     background: var(--bg-card); border: 1px solid var(--line);
-    border-radius: 12px; padding: 22px;
+    border-radius: var(--radius); padding: 24px;
   }
   .card-head {
     display: flex; justify-content: space-between; align-items: center;
@@ -207,8 +224,8 @@
   .card-head .sub { color: var(--text-soft); font-size: 12px; margin-top: 2px; }
 
   .toggles { display: flex; flex-wrap: wrap; gap: 6px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
-  .row-trend { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .row-trend { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
   @media (max-width: 1280px) { .row-trend { grid-template-columns: 1fr; } }
   .chart-wrap { height: 280px; position: relative; }
   /* 제품별 매출 표 */
@@ -225,7 +242,7 @@
     display: grid; grid-template-columns: 70px 1fr 80px;
     align-items: center; gap: 8px; font-size: 12px;
   }
-  .rank-bar-wrap { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .rank-bar-wrap { height: 8px; background: var(--bg-muted); border-radius: 4px; overflow: hidden; }
   .rank-bar { height: 100%; border-radius: 4px; }
   .rank-amt { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-soft); }
 
@@ -236,10 +253,10 @@
   }
   table.matrix th { color: var(--text-soft); font-weight: 500; font-size: 11.5px; }
   table.matrix td:first-child, table.matrix th:first-child { text-align: left; font-weight: 600; }
-  .heat-1 { background: rgba(52,199,89,0.12); }
-  .heat-2 { background: rgba(52,199,89,0.22); }
-  .heat-3 { background: rgba(52,199,89,0.38); }
-  .heat-4 { background: rgba(52,199,89,0.55); font-weight: 600; color: #fff; }
+  .heat-1 { background: rgba(0,133,119,0.08); }
+  .heat-2 { background: rgba(0,133,119,0.16); }
+  .heat-3 { background: rgba(0,133,119,0.30); }
+  .heat-4 { background: rgba(0,133,119,0.48); font-weight: 600; color: #fff; }
 </style>
 </head>
 <body>
@@ -287,7 +304,7 @@
     <!-- 상단: 3단 구조 = ① 필터링 → ② 체크박스 → (그 밑 결과) -->
     <div class="filter-bar" style="position:relative;">
       <!-- 우측 상단 메모 박스 (항상 표시) — 평소 대비 매출 급증/급감 제품 1개씩 -->
-      <div id="memoBox" style="position:absolute; top:0; right:0; width:44%; max-width:780px; background:var(--bg-soft); border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:13px 16px; box-sizing:border-box;">
+      <div id="memoBox" style="position:absolute; top:0; right:0; width:44%; max-width:780px; background:var(--bg-soft); border:1px solid var(--line); border-radius:10px; padding:13px 16px; box-sizing:border-box;">
         <div style="font-size:12px; color:var(--text-soft); font-weight:700; margin-bottom:9px;">📌 메모 <span id="memoSub" style="color:var(--text-faint); font-weight:400; font-size:11px;"></span></div>
         <div id="memoBody" style="font-size:13px; color:var(--text); line-height:1.85;">로딩 중...</div>
       </div>
@@ -375,7 +392,7 @@
 // 채널 정의 (시트 키와 1:1) — amount 는 시트 로드 후 채워짐
 const channelKeys = ['cafe24','naver','coupang','kakao','mamitalk','babybilly'];
 const channels = [
-  { key: 'cafe24',        name: '카페24',          aliases: ['자사몰','카페24','맘솔브'],  color: '#ffb6c1', amount: 0, count: 0, selected: false},
+  { key: 'cafe24',        name: '카페24',          aliases: ['자사몰','카페24','맘솔브'],  color: '#ec6f9e', amount: 0, count: 0, selected: false},
   { key: 'naver',         name: '네이버',          aliases: ['네이버'],                   color: '#34c759', amount: 0, count: 0, selected: false},
   { key: 'coupang',       name: '쿠팡',            aliases: ['쿠팡'],                     color: '#ff9500', amount: 0, count: 0, selected: false},
   { key: 'kakao',         name: '카카오선물하기',  aliases: ['카카오','카카오선물하기'],  color: '#ff3b30', amount: 0, count: 0, selected: false},
@@ -734,7 +751,7 @@ function rerenderAll() {
       backgroundColor: makeGradient(color),
       borderWidth: 2, tension: 0.35,
       pointRadius: 3, pointHoverRadius: 6,
-      pointBackgroundColor: color, pointBorderColor: '#272729', pointBorderWidth: 1.5,
+      pointBackgroundColor: color, pointBorderColor: '#ffffff', pointBorderWidth: 1.5,
       fill: true,
     };
   });
@@ -1114,15 +1131,15 @@ const productTrendChart = new Chart(document.getElementById('productTrendChart')
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.85)', cornerRadius: 8, padding: 10,
+        backgroundColor: 'rgba(31,41,51,0.95)', cornerRadius: 8, padding: 10,
         callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${fmtWon(ctx.parsed.y)}` }
       }
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#cccccc', font: { size: 11 } } },
+      x: { grid: { display: false }, ticks: { color: '#5f6b6d', font: { size: 11 } } },
       y: {
-        grid: { color: 'rgba(255,255,255,0.08)', drawBorder: false },
-        ticks: { color: '#cccccc', font: { size: 11 }, callback: (v) => fmtWon(v) }
+        grid: { color: 'rgba(31,41,51,0.07)', drawBorder: false },
+        ticks: { color: '#5f6b6d', font: { size: 11 }, callback: (v) => fmtWon(v) }
       }
     }
   }
