@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>맘솔브 채널별 매출 대시보드</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{if(localStorage.getItem('momsolve_theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}</script>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -58,6 +59,42 @@
     --pt-sky: #2997e6;
     --pt-amber: #ff8c1a;
   }
+  /* ===== Dark mode token overrides ===== */
+  html.dark {
+    --primary: #2bc4ae;
+    --primary-hover: #25b39e;
+    --primary-soft: rgba(43,196,174,0.16);
+    --primary-tint: rgba(43,196,174,0.24);
+    --bg: #1d1d1f;
+    --bg-sidebar: #202022;
+    --bg-main: #1d1d1f;
+    --bg-soft: #2a2a2c;
+    --bg-muted: #34343a;
+    --bg-card: #262628;
+    --text: #f5f5f7;
+    --text-soft: #c7c7cc;
+    --text-faint: #8a8a8e;
+    --line: rgba(255,255,255,0.12);
+    --line-soft: rgba(255,255,255,0.07);
+    --hover: rgba(255,255,255,0.06);
+    --blue: #2bc4ae;
+    --grad-primary: linear-gradient(135deg, #34d6bd 0%, #1fa890 100%);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.45);
+    --shadow-md: 0 6px 20px rgba(0,0,0,0.55);
+    --glow: 0 0 0 3px rgba(43,196,174,0.22);
+  }
+  html, body { transition: background-color 0.2s ease, color 0.2s ease; }
+  /* 다크모드 토글 버튼 */
+  .theme-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-card);
+    color: var(--text-soft); font-size: 12.5px; font-weight: 600;
+    font-family: inherit; cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s, color 0.15s;
+  }
+  .theme-toggle:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); border-color: var(--primary); color: var(--primary); }
+  .theme-toggle .ico { font-size: 14px; line-height: 1; }
   body {
     font-family: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', '맑은 고딕', sans-serif;
     background: var(--bg);
@@ -75,11 +112,13 @@
     position: sticky; top: 0; height: 100vh; overflow-y: auto;
   }
   .workspace {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px; margin-bottom: 14px;
-    border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; margin-bottom: 16px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-card); box-shadow: var(--shadow-sm);
+    cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .workspace:hover { background: var(--hover); }
+  .workspace:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
   .ws-icon {
     width: 24px; height: 24px; border-radius: 7px;
     background: var(--grad-primary);
@@ -87,8 +126,10 @@
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 12px; font-weight: 700;
   }
-  .ws-name { font-size: 13.5px; font-weight: 600; flex: 1; }
-  .ws-caret { color: var(--text-faint); font-size: 10px; }
+  .ws-meta { flex: 1; line-height: 1.25; }
+  .ws-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .ws-sub { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .ws-caret { color: var(--text-faint); font-size: 11px; }
 
   .nav-section { margin-bottom: 16px; }
   .nav-section-title {
@@ -121,6 +162,7 @@
   }
   .nav-item:hover .plus { opacity: 1; }
   .nav-children { margin-left: 18px; }
+  .nav-placeholder { font-size: 12px; color: var(--text-faint); padding: 3px 10px 6px; }
 
   /* ========== 메인 ========== */
   .main { background: var(--bg-main); }
@@ -157,7 +199,7 @@
   .chip {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 7px 14px; border-radius: 999px;
-    background: #fff; cursor: pointer; user-select: none;
+    background: var(--bg-card); cursor: pointer; user-select: none;
     font-size: 12.5px; font-weight: 600;
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s, border-color 0.15s, color 0.15s;
     border: 1px solid var(--line);
@@ -188,7 +230,7 @@
   button.quick-btn {
     position: relative; overflow: hidden;
     padding: 8px 15px; border-radius: var(--radius-sm);
-    border: 1px solid var(--line); background: #fff;
+    border: 1px solid var(--line); background: var(--bg-card);
     font-size: 12.5px; font-weight: 600; color: var(--text-soft);
     font-family: inherit; cursor: pointer;
     background-image: none;
@@ -234,7 +276,7 @@
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
   .kpi {
     position: relative; overflow: hidden;
-    background: #fff; border: 1px solid var(--line);
+    background: var(--bg-card); border: 1px solid var(--line);
     border-radius: var(--radius); padding: 22px 22px 20px;
     box-shadow: var(--shadow-sm);
     transition: transform 0.16s ease, box-shadow 0.16s ease;
@@ -313,8 +355,11 @@
   <aside class="sidebar">
     <div class="workspace">
       <div class="ws-icon">맘</div>
-      <div class="ws-name">맘솔브 운영 대시보드</div>
-      <span class="ws-caret">▼</span>
+      <div class="ws-meta">
+        <div class="ws-name">맘솔브</div>
+        <div class="ws-sub">admin</div>
+      </div>
+      <span class="ws-caret">⌄</span>
     </div>
 
     <div class="nav-section">
@@ -329,18 +374,19 @@
         <span class="icon">📦</span>
         <span class="label">제품별 매출</span>
       </a>
-      <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
-        <span class="caret">▸</span>
-        <span class="icon">📢</span>
-        <span class="label">마케팅</span>
-        <span style="font-size:10px; color:var(--text-faint); margin-left:auto;">예정</span>
-      </div>
-      <div class="nav-item" style="opacity: 0.5; cursor: not-allowed;">
-        <span class="caret">▸</span>
-        <span class="icon">🎁</span>
-        <span class="label">쿠폰·프로모션</span>
-        <span style="font-size:10px; color:var(--text-faint); margin-left:auto;">예정</span>
-      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">컨텐츠</div>
+      <div class="nav-placeholder">하위 메뉴 추가 예정</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">퍼포먼스</div>
+      <div class="nav-placeholder">하위 메뉴 추가 예정</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">SA</div>
+      <div class="nav-placeholder">하위 메뉴 추가 예정</div>
     </div>
   </aside>
 
@@ -355,6 +401,9 @@
           📊 <strong style="color: var(--text);">채널별 매출 대시보드</strong>
           <span class="sep">·</span> <span id="headerDate">로딩 중...</span> · 매일 05:00 자동 갱신
         </div>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="다크모드 전환">
+          <span class="ico">🌙</span><span class="tlabel">다크모드</span>
+        </button>
       </div>
 
       <!-- ① 필터링 -->
@@ -473,7 +522,7 @@
 
       <!-- 다른 분석 페이지 안내 -->
       <div style="margin-top: 14px; padding: 14px 18px; background: var(--bg-soft); border-radius: 12px; font-size: 12.5px; color: var(--text-soft); display: flex; gap: 24px; align-items: center;">
-        <span>📢 <strong style="color:var(--text);">마케팅 유입</strong> · 🎁 <strong style="color:var(--text);">쿠폰·프로모션</strong> 분석은 좌측 네비에서 곧 추가됩니다.</span>
+        <span>📝 <strong style="color:var(--text);">컨텐츠</strong> · 📈 <strong style="color:var(--text);">퍼포먼스</strong> · 🔍 <strong style="color:var(--text);">SA</strong> 분석은 좌측 네비에서 곧 추가됩니다.</span>
       </div>
 
     </div>
@@ -1370,6 +1419,52 @@ function applyQuickRange(range) {
 document.querySelectorAll('.quick-btn').forEach(btn => {
   btn.addEventListener('click', () => applyQuickRange(btn.dataset.range));
 });
+
+// ============================================================
+// 다크모드 토글 — 클래스 전환 + 차트 색 테마 반영 + localStorage 저장
+// ============================================================
+function themeChartColors() {
+  const dark = document.documentElement.classList.contains('dark');
+  return {
+    tick:  dark ? '#c7c7cc' : '#5f6b6d',
+    grid:  dark ? 'rgba(255,255,255,0.09)' : 'rgba(31,41,51,0.07)',
+    tip:   dark ? 'rgba(0,0,0,0.85)' : 'rgba(31,41,51,0.95)',
+    point: dark ? '#262628' : '#ffffff',
+  };
+}
+function applyChartTheme() {
+  const c = themeChartColors();
+  [trendChart, orderCountChart, monthCompareChart].forEach(ch => {
+    if (!ch || !ch.options) return;
+    if (ch.options.scales) {
+      ['x','y'].forEach(ax => { if (ch.options.scales[ax] && ch.options.scales[ax].ticks) ch.options.scales[ax].ticks.color = c.tick; });
+      if (ch.options.scales.y && ch.options.scales.y.grid) ch.options.scales.y.grid.color = c.grid;
+    }
+    if (ch.options.plugins?.tooltip) ch.options.plugins.tooltip.backgroundColor = c.tip;
+    if (ch.options.plugins?.legend?.labels) ch.options.plugins.legend.labels.color = c.tick;
+    ch.data.datasets.forEach(ds => { if ('pointBorderColor' in ds) ds.pointBorderColor = c.point; });
+    ch.update('none');
+  });
+  [salesChart, countChart].forEach(ch => {
+    if (!ch || !ch.options) return;
+    if (ch.options.plugins?.tooltip) ch.options.plugins.tooltip.backgroundColor = c.tip;
+    ch.data.datasets.forEach(ds => { ds.borderColor = c.point; });
+    ch.update('none');
+  });
+}
+function setTheme(dark) {
+  document.documentElement.classList.toggle('dark', dark);
+  try { localStorage.setItem('momsolve_theme', dark ? 'dark' : 'light'); } catch (e) {}
+  const t = document.getElementById('themeToggle');
+  if (t) {
+    t.querySelector('.ico').textContent = dark ? '☀️' : '🌙';
+    t.querySelector('.tlabel').textContent = dark ? '라이트' : '다크모드';
+  }
+  applyChartTheme();
+}
+const _themeBtn = document.getElementById('themeToggle');
+if (_themeBtn) _themeBtn.addEventListener('click', () => setTheme(!document.documentElement.classList.contains('dark')));
+setTheme(document.documentElement.classList.contains('dark'));
 
 // Chart 객체 생성된 후에 호출 (이 스크립트 끝에 있어서 OK)
 loadRealData();
